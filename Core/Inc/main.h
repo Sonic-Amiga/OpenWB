@@ -54,7 +54,6 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-void loop(void);
 
 /* USER CODE END EFP */
 
@@ -67,8 +66,10 @@ void loop(void);
 #define RELAY1_GPIO_Port GPIOA
 #define INPUT1_Pin GPIO_PIN_9
 #define INPUT1_GPIO_Port GPIOA
+#define INPUT1_EXTI_IRQn EXTI4_15_IRQn
 #define INPUT0_Pin GPIO_PIN_10
 #define INPUT0_GPIO_Port GPIOA
+#define INPUT0_EXTI_IRQn EXTI4_15_IRQn
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
