@@ -53,6 +53,10 @@ ChannelHandler channel1(RELAY1_Pin, INPUT1_Pin);
 
 void loop(void)
 {
+	static const char msg[] = "Hello from WB-MR2!\n\r";
+
+	HAL_UART_Transmit(&huart1, (uint8_t*)msg, sizeof(msg) - 1, 0xFFFF);
+
 	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
     HAL_Delay(500);
     HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
