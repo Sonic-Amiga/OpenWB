@@ -2,6 +2,7 @@
 #include "main.h"
 #include "stm32f0xx_hal.h"
 #include "hal_extras.h"
+#include "ModbusRTU.h"
 
 class ChannelHandler
 {
@@ -15,6 +16,13 @@ public:
 		  delay = 0;
 	  else
 		  delay -= uwTickFreq;
+  }
+
+  void setRelayState(bool state)
+  {
+	  relay_state = state;
+      // Here we hope both relays are located on the same port, true so far
+      HAL_GPIO_WritePin(RELAY0_GPIO_Port, relay_pin, (GPIO_PinState)state);
   }
 
   bool     relay_state = false;
@@ -37,9 +45,7 @@ void ChannelHandler::onInterrupt()
         if (delay)
             return;
 
-        relay_state = !relay_state;
-        // Here we hope both relays are located on the same port, true so far
-        HAL_GPIO_WritePin(RELAY0_GPIO_Port, relay_pin, (GPIO_PinState)relay_state);
+        setRelayState(!relay_state);
     }
     else
     {
@@ -48,19 +54,76 @@ void ChannelHandler::onInterrupt()
     }
 }
 
-ChannelHandler channel0(RELAY0_Pin, INPUT0_Pin);
-ChannelHandler channel1(RELAY1_Pin, INPUT1_Pin);
+static ChannelHandler channel0(RELAY0_Pin, INPUT0_Pin);
+static ChannelHandler channel1(RELAY1_Pin, INPUT1_Pin);
+
+class WBMR : public ModbusRTUSlave
+{
+public:
+	using ModbusRTUSlave::ModbusRTUSlave;
+
+protected:
+	ExceptionCode onWriteCoil(uint16_t reg, bool value) override;
+	ExceptionCode onReadCoil(uint16_t reg, bool& value) override;
+	ExceptionCode onReadDiscrete(uint16_t reg, bool& value) override;
+};
+
+ModbusRTUSlave::ExceptionCode WBMR::onWriteCoil(uint16_t reg, bool value)
+{
+	switch (reg)
+	{
+	case 0:
+        channel0.setRelayState(value);
+        break;
+	case 1:
+        channel1.setRelayState(value);
+        break;
+	default:
+		return ExceptionCode::IllegalDataAddress;
+	}
+
+	return ExceptionCode::OK;
+}
+
+ModbusRTUSlave::ExceptionCode WBMR::onReadCoil(uint16_t reg, bool& value)
+{
+	switch (reg)
+	{
+	case 0:
+        value = channel0.relay_state;
+        break;
+	case 1:
+		value = channel1.relay_state;;
+        break;
+	default:
+		return ExceptionCode::IllegalDataAddress;
+	}
+
+	return ExceptionCode::OK;
+}
+
+ModbusRTUSlave::ExceptionCode WBMR::onReadDiscrete(uint16_t reg, bool& value)
+{
+	switch (reg)
+	{
+	case 0:
+        value = channel0.input_state;
+        break;
+	case 1:
+		value = channel1.input_state;;
+        break;
+	default:
+		return ExceptionCode::IllegalDataAddress;
+	}
+
+	return ExceptionCode::OK;
+}
+
+static WBMR modbus(&huart1, 145);
 
 void loop(void)
 {
-	static const char msg[] = "Hello from WB-MR2!\n\r";
-
-	HAL_UART_Transmit(&huart1, (uint8_t*)msg, sizeof(msg) - 1, 0xFFFF);
-
-	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
-    HAL_Delay(500);
-    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
-    HAL_Delay(500);
+	modbus.receiveFrame();
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t pin)
