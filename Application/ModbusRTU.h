@@ -73,20 +73,10 @@ private:
 
 	static uint16_t crc16(const uint8_t *nData, uint16_t wLength);
 
-	//Checks if frame has been corrupted
-	//
-	//
-	bool isFrameCorrupted(uint8_t *frame, uint16_t frameLength)
-	{
-		// Check if CRC16 is the same
-		return (crc16(frame, frameLength - 2) != *(short*)&frame[frameLength - 2]);
-	}
-
 	// Sends exception to master
 	// Uses last received frame as function code
 	//
 	void throwException(ExceptionCode exceptionCode);
-
 
 	//Send response frame to master
 	//This function appends a CRC16 to the end of the frame

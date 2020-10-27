@@ -13,22 +13,31 @@
 
 #define BIT_CHECK(variable, bit) (variable & (1 << bit))
 
+static inline uint16_t read_unaligned_le16(uint8_t* ptr)
+{
+	return ptr[0] | (((uint16_t)ptr[1]) << 8);
+}
+
+static inline void write_unaligned_le16(uint8_t* ptr, uint16_t value)
+{
+	ptr[0] = value;
+	ptr[1] = value >> 8;
+}
+
+static inline uint16_t read_unaligned_be16(uint8_t* ptr)
+{
+	return (((uint16_t)ptr[0]) << 8) | ptr[1];
+}
+
+static inline void write_unaligned_be16(uint8_t* ptr, uint16_t value)
+{
+	ptr[0] = value >> 8;
+	ptr[1] = value;
+}
+
 static inline uint16_t div_roundup(uint16_t a, uint16_t b)
 {
 	return (a + b - 1) / b;
-}
-
-static inline uint16_t endianSwap16(uint16_t a)
-{
-	return ((a & 0x00FF) << 8) | ((a & 0xFF00) >> 8);
-}
-
-static inline uint32_t endianSwap32(uint32_t a)
-{
-	return ((a & 0x000000FF) << 24) |
-		   ((a & 0x0000FF00) << 8) |
-		   ((a & 0x00FF0000) >> 8) |
-		   ((a & 0xFF000000) >> 24);
 }
 
 uint16_t ModbusRTUSlave::crc16(const uint8_t *nData, uint16_t wLength)
@@ -123,7 +132,7 @@ bool ModbusRTUSlave::receiveFrame()
     	return false; // Some rubbish received, just drop
     }
 
-    if (crc16(m_InputFrame, length - 2) != *(short*)&m_InputFrame[length - 2])
+    if (crc16(m_InputFrame, length - 2) != read_unaligned_le16(&m_InputFrame[length - 2]))
     	return false; // CRC mismatch, drop
 
     parseFrame(m_InputFrame, length);
@@ -132,7 +141,7 @@ bool ModbusRTUSlave::receiveFrame()
 
 void ModbusRTUSlave::sendFrame(uint8_t *pFrame, uint8_t frameLength)
 {
-	*(uint16_t*)&pFrame[frameLength] = crc16(pFrame, frameLength);
+	write_unaligned_le16(&pFrame[frameLength], crc16(pFrame, frameLength));
 	send(pFrame, frameLength + 2);
 }
 
@@ -147,8 +156,8 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 	switch (frame[1])
 	{
 	case ReadCoils:
-        targetRegister = endianSwap16(*(uint16_t*)&frame[2]);
-        targetRegisterLength = endianSwap16(*(uint16_t*)&frame[4]);
+        targetRegister = read_unaligned_be16(&frame[2]);
+        targetRegisterLength = read_unaligned_be16(&frame[4]);
         dataLength = div_roundup(targetRegisterLength, 8);
 
         // Write frame header
@@ -176,13 +185,12 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         break;
 
 	case WriteSingleCoil:
-        targetRegister = endianSwap16(*(uint16_t*)&frame[2]);
-        bValue = !!*(uint16_t*)&frame[4];
+        targetRegister = read_unaligned_be16(&frame[2]);
+        bValue = !!read_unaligned_be16(&frame[4]);
         result = onWriteCoil(targetRegister, bValue);
     
         if (result != ExceptionCode::OK)
         {
-            // Throw exception if exister is non-existent or incorrect type
             throwException(result);
             return;
         }
@@ -191,8 +199,8 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         break;
 
     case WriteMultipleCoils:
-        targetRegister = endianSwap16(*(uint16_t*)&frame[2]);
-        targetRegisterLength = endianSwap16(*(uint16_t*)&frame[4]);
+        targetRegister = read_unaligned_be16(&frame[2]);
+        targetRegisterLength = read_unaligned_be16(&frame[4]);
 
         for (uint16_t i = 0; i < targetRegisterLength; i++)
         {
@@ -213,8 +221,8 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         break;
 
     case ReadDiscreteInputs:
-        targetRegister = endianSwap16(*(uint16_t*)&frame[2]);
-        targetRegisterLength = endianSwap16(*(uint16_t*)&frame[4]);
+        targetRegister = read_unaligned_be16(&frame[2]);
+        targetRegisterLength = read_unaligned_be16(&frame[4]);
         dataLength = div_roundup(targetRegisterLength, 8);
 
         // Write frame header
@@ -242,8 +250,8 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         break;
 
     case ReadMultipleHoldingRegisters:
-        targetRegister = endianSwap16(*(uint16_t*)&frame[2]);
-        targetRegisterLength = endianSwap16(*(uint16_t*)&frame[4]);
+        targetRegister = read_unaligned_be16(&frame[2]);
+        targetRegisterLength = read_unaligned_be16(&frame[4]);
         dataLength = targetRegisterLength * 2;
 
         // Write frame header
@@ -262,7 +270,7 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
                 return;
             }
 
-            *(uint16_t*)&m_OutputFrame[3 + (i * 2)] = endianSwap16(iValue);
+            write_unaligned_be16(&m_OutputFrame[3 + (i * 2)], iValue);
         }
 
         // Send response frame to master
@@ -270,8 +278,8 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         break;
 
     case WriteSingleRegister:
-        targetRegister = endianSwap16(*(uint16_t*)&frame[2]);
-        iValue = endianSwap16(*(uint16_t*)&frame[4]);
+        targetRegister = read_unaligned_be16(&frame[2]);
+        iValue = read_unaligned_be16(&frame[4]);
         result = onWriteHolding(targetRegister, iValue);
     
         if (result != ExceptionCode::OK)
@@ -285,12 +293,12 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         break;
 
     case WriteMultipleRegisters:
-        targetRegister = endianSwap16(*(uint16_t*)&frame[2]);
-        targetRegisterLength = endianSwap16(*(uint16_t*)&frame[4]);
+        targetRegister = read_unaligned_be16(&frame[2]);
+        targetRegisterLength = read_unaligned_be16(&frame[4]);
 
         for (uint16_t i = 0; i < targetRegisterLength; i++)
         {
-    	    iValue = endianSwap16(*(uint16_t*)&frame[7 + (i * 2)]);
+    	    iValue = read_unaligned_be16(&frame[7 + (i * 2)]);
             result = onWriteHolding(targetRegister + i, iValue);
 
             if (result != ExceptionCode::OK)
@@ -312,8 +320,8 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         break;
 
     case ReadInputRegisters:
-        targetRegister = endianSwap16(*(uint16_t*)&frame[2]);
-        targetRegisterLength = endianSwap16(*(uint16_t*)&frame[4]);
+        targetRegister = read_unaligned_be16(&frame[2]);
+        targetRegisterLength = read_unaligned_be16(&frame[4]);
         dataLength = targetRegisterLength * 2;
 
         // Write frame header
@@ -333,7 +341,7 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
                 return;
             }
 
-            *(uint16_t*)&m_OutputFrame[3 + (i * 2)] = endianSwap16(iValue);
+            write_unaligned_be16(&m_OutputFrame[3 + (i * 2)], iValue);
         }
 
         //Send response frame to master
