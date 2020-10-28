@@ -31,7 +31,7 @@ public:
 	};
 
 	ModbusRTUSlave(UART_HandleTypeDef *uart, uint8_t slaveId)
-        : m_uart(uart), m_SlaveID(slaveId)
+        : m_SlaveID(slaveId), m_uart(uart)
 	{
 	}
 
@@ -62,6 +62,8 @@ protected:
 		return Result::IllegalDataAddress;
 	}
 
+	uint8_t m_SlaveID;
+
 private:
 	enum FunctionCode : uint8_t
 	{
@@ -77,7 +79,6 @@ private:
 	};
 
 	UART_HandleTypeDef *m_uart;
-	uint8_t             m_SlaveID;
 	uint8_t             m_InputFrame[MODBUS_MAX_FRAME_LENGTH];
 	uint8_t             m_OutputFrame[MODBUS_MAX_FRAME_LENGTH];
 

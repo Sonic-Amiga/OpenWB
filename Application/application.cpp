@@ -3,6 +3,12 @@
 #include "hal_extras.h"
 #include "ModbusRTU.h"
 
+static const char model[7]      = "WBMR2";
+static const char version[16]   = "0.1";
+static const char signature[12] = "OpenWB";
+
+static uint32_t uptime = 0;
+
 class ChannelHandler
 {
 public:
@@ -59,12 +65,19 @@ static ChannelHandler channel1(RELAY1_Pin, INPUT1_Pin);
 class WBMR : public ModbusRTUSlave
 {
 public:
-	using ModbusRTUSlave::ModbusRTUSlave;
+	WBMR(UART_HandleTypeDef *uart) : ModbusRTUSlave(uart, 145) {}
 
 protected:
 	uint32_t onWriteCoil(uint16_t reg, bool value) override;
 	uint32_t onReadCoil(uint16_t reg) override;
 	uint32_t onReadDiscrete(uint16_t reg) override;
+	uint32_t onReadInput(uint16_t reg) override;
+	uint32_t onReadHolding(uint16_t reg) override;
+
+private:
+	uint16_t baud_rate = 96;
+	uint16_t parity    = 0;
+	uint16_t stop_bits = 2;
 };
 
 uint32_t WBMR::onWriteCoil(uint16_t reg, bool value)
@@ -110,7 +123,48 @@ uint32_t WBMR::onReadDiscrete(uint16_t reg)
 	}
 }
 
-static WBMR modbus(&huart1, 145);
+#define STRING_REG(reg, addr, str)                \
+    if (reg >= addr && reg <= addr + sizeof(str)) \
+        return str[reg - addr]
+
+#define BE32_REG(reg, addr, value) \
+	if (reg == addr)               \
+        return value >> 16;        \
+    if (reg == addr + 1)           \
+    	return value & 0x00FF
+
+uint32_t WBMR::onReadInput(uint16_t reg)
+{
+	BE32_REG(reg, 104, uptime);
+	STRING_REG(reg, 200, model);
+	STRING_REG(reg, 250, version);
+	STRING_REG(reg, 290, signature);
+
+	return Result::IllegalDataAddress;
+}
+
+uint32_t WBMR::onReadHolding(uint16_t reg)
+{
+	switch (reg)
+	{
+	case 20:
+		return channel0.debounce;
+	case 21:
+		return channel1.debounce;
+	case 110:
+		return baud_rate;
+	case 111:
+		return parity;
+	case 112:
+		return stop_bits;
+	case 128:
+		return m_SlaveID;
+	default:
+		return Result::IllegalDataAddress;
+	}
+}
+
+static WBMR modbus(&huart1);
 
 void loop(void)
 {
@@ -130,6 +184,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
 	}
 }
 
+static uint16_t second_counter = 0;
+
 void HAL_IncTick(void)
 {
 	// Do not forget to drive HAL's own time counter
@@ -137,4 +193,11 @@ void HAL_IncTick(void)
 
     channel0.onTick();
     channel1.onTick();
+
+    second_counter += uwTickFreq;
+    if (second_counter >= 1000)
+    {
+    	uptime++;
+    	second_counter = 0;
+    }
 }
