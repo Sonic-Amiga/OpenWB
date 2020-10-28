@@ -30,6 +30,15 @@ public:
       HAL_GPIO_WritePin(RELAY0_GPIO_Port, relay_pin, (GPIO_PinState)state);
   }
 
+  uint32_t setDebounce(uint16_t value)
+  {
+	  if (value > 100)
+		  return ModbusRTUSlave::Result::IllegalDataValue;
+
+	  debounce = value;
+	  return ModbusRTUSlave::Result::OK;
+  }
+
   bool     relay_state = false;
   bool     input_state = false;
   uint16_t debounce    = 100;
@@ -67,12 +76,24 @@ class WBMR : public ModbusRTUSlave
 public:
 	WBMR(UART_HandleTypeDef *uart) : ModbusRTUSlave(uart, 145) {}
 
+	uint32_t setSlaveID(uint8_t id)
+	{
+		if (id < 1 || id > 247)
+			return Result::IllegalDataValue;
+
+		// It's OK to change m_SlaveID during the transaction.
+		// The response will be correctly sent from an old address
+		m_SlaveID = id;
+		return Result::OK;
+	}
+
 protected:
 	uint32_t onWriteCoil(uint16_t reg, bool value) override;
 	uint32_t onReadCoil(uint16_t reg) override;
 	uint32_t onReadDiscrete(uint16_t reg) override;
 	uint32_t onReadInput(uint16_t reg) override;
 	uint32_t onReadHolding(uint16_t reg) override;
+	uint32_t onWriteHolding(uint16_t reg, uint16_t value) override;
 
 private:
 	uint16_t baud_rate = 96;
@@ -162,6 +183,23 @@ uint32_t WBMR::onReadHolding(uint16_t reg)
 	default:
 		return Result::IllegalDataAddress;
 	}
+}
+
+uint32_t WBMR::onWriteHolding(uint16_t reg, uint16_t value)
+{
+	switch (reg)
+	{
+	case 20:
+		return channel0.setDebounce(value);
+	case 21:
+		return channel1.setDebounce(value);
+	case 128:
+		return setSlaveID(value);
+	default:
+		return Result::IllegalDataAddress;
+	}
+
+	return Result::OK;
 }
 
 static WBMR modbus(&huart1);

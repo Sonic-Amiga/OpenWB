@@ -135,6 +135,9 @@ bool ModbusRTUSlave::receiveFrame()
     	return false; // Some rubbish received, just drop
     }
 
+    if (m_InputFrame[0] != m_SlaveID)
+    	return false; // Not for us, drop
+
     if (crc16(m_InputFrame, length - 2) != read_unaligned_le16(&m_InputFrame[length - 2]))
     	return false; // CRC mismatch, drop
 
