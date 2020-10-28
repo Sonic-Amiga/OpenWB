@@ -19,3 +19,4 @@ At the moment only old WB-MR2 (not mini) board is supported. I don't know Mini h
 * On previously unmodified board the controller will be read-protected. Deactivate the fuse. **WARNING** This action completely erases any original firmware from the microcontroller. It is **IRREVERSIBLE**
 * Flash your new firmware
 
+NOTE: SWD interface works fine without Reset line, you need it only if you've done something stupid like disabling SWD pins.
