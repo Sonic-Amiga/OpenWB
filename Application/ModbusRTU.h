@@ -100,7 +100,7 @@ private:
 	void parseFrame(uint8_t *frame, uint16_t frameLength);
 
 	void send(uint8_t* frame, uint16_t length) {
-	    HAL_UART_Transmit(m_uart, frame, 8, 0xFFFF);
+	    HAL_UART_Transmit(m_uart, frame, length, 0xFFFF);
 	}
 };
 
