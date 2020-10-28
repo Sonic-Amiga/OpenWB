@@ -11,13 +11,23 @@
 
 class ModbusRTUSlave
 {
-public:
+private:
 	enum ExceptionCode : uint8_t
 	{
+		Illegal_Function = 1,
+		Illegal_DataAddress = 2,
+		Illegal_DataValue = 3,
+	};
+
+public:
+	enum Result : uint32_t
+	{
 		OK = 0,
-		IllegalFunction = 1,
-		IllegalDataAddress = 2,
-		IllegalDataValue = 3,
+		ValueMask = 0x0000FFFF,
+		ErrorFlag = 0x80000000,
+		IllegalFunction = ErrorFlag + ExceptionCode::Illegal_Function,
+		IllegalDataAddress = ErrorFlag + ExceptionCode::Illegal_DataAddress,
+		IllegalDataValue = ErrorFlag + ExceptionCode::Illegal_DataValue
 	};
 
 	ModbusRTUSlave(UART_HandleTypeDef *uart, uint8_t slaveId)
@@ -28,28 +38,28 @@ public:
 	bool receiveFrame();
 
 protected:
-	virtual ExceptionCode onReadCoil(uint16_t reg, bool& value) {
-		return ExceptionCode::IllegalDataAddress;
+	virtual uint32_t onReadCoil(uint16_t reg) {
+		return Result::IllegalDataAddress;
 	}
 
-	virtual ExceptionCode onWriteCoil(uint16_t reg, bool value) {
-		return ExceptionCode::IllegalDataAddress;
+	virtual uint32_t onWriteCoil(uint16_t reg, bool value) {
+		return Result::IllegalDataAddress;
 	}
 
-	virtual ExceptionCode onReadDiscrete(uint16_t reg, bool &value) {
-		return ExceptionCode::IllegalDataAddress;
+	virtual uint32_t onReadDiscrete(uint16_t reg) {
+		return Result::IllegalDataAddress;
 	}
 
-	virtual ExceptionCode onReadInput(uint16_t reg, uint16_t &value) {
-		return ExceptionCode::IllegalDataAddress;
+	virtual uint32_t onReadInput(uint16_t reg) {
+		return Result::IllegalDataAddress;
 	}
 
-	virtual ExceptionCode onReadHolding(uint16_t reg, uint16_t &value) {
-		return ExceptionCode::IllegalDataAddress;
+	virtual uint32_t onReadHolding(uint16_t reg) {
+		return Result::IllegalDataAddress;
 	}
 
-	virtual ExceptionCode onWriteHolding(uint16_t reg, uint16_t value) {
-		return ExceptionCode::IllegalDataAddress;
+	virtual uint32_t onWriteHolding(uint16_t reg, uint16_t value) {
+		return Result::IllegalDataAddress;
 	}
 
 private:
@@ -76,7 +86,7 @@ private:
 	// Sends exception to master
 	// Uses last received frame as function code
 	//
-	void throwException(ExceptionCode exceptionCode);
+	void throwException(uint8_t exceptionCode);
 
 	//Send response frame to master
 	//This function appends a CRC16 to the end of the frame

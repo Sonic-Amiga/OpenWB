@@ -62,12 +62,12 @@ public:
 	using ModbusRTUSlave::ModbusRTUSlave;
 
 protected:
-	ExceptionCode onWriteCoil(uint16_t reg, bool value) override;
-	ExceptionCode onReadCoil(uint16_t reg, bool& value) override;
-	ExceptionCode onReadDiscrete(uint16_t reg, bool& value) override;
+	uint32_t onWriteCoil(uint16_t reg, bool value) override;
+	uint32_t onReadCoil(uint16_t reg) override;
+	uint32_t onReadDiscrete(uint16_t reg) override;
 };
 
-ModbusRTUSlave::ExceptionCode WBMR::onWriteCoil(uint16_t reg, bool value)
+uint32_t WBMR::onWriteCoil(uint16_t reg, bool value)
 {
 	switch (reg)
 	{
@@ -78,44 +78,36 @@ ModbusRTUSlave::ExceptionCode WBMR::onWriteCoil(uint16_t reg, bool value)
         channel1.setRelayState(value);
         break;
 	default:
-		return ExceptionCode::IllegalDataAddress;
+		return Result::IllegalDataAddress;
 	}
 
-	return ExceptionCode::OK;
+	return Result::OK;
 }
 
-ModbusRTUSlave::ExceptionCode WBMR::onReadCoil(uint16_t reg, bool& value)
+uint32_t WBMR::onReadCoil(uint16_t reg)
 {
 	switch (reg)
 	{
 	case 0:
-        value = channel0.relay_state;
-        break;
+        return channel0.relay_state;
 	case 1:
-		value = channel1.relay_state;;
-        break;
+		return channel1.relay_state;;
 	default:
-		return ExceptionCode::IllegalDataAddress;
+		return Result::IllegalDataAddress;
 	}
-
-	return ExceptionCode::OK;
 }
 
-ModbusRTUSlave::ExceptionCode WBMR::onReadDiscrete(uint16_t reg, bool& value)
+uint32_t WBMR::onReadDiscrete(uint16_t reg)
 {
 	switch (reg)
 	{
 	case 0:
-        value = channel0.input_state;
-        break;
+        return channel0.input_state;
 	case 1:
-		value = channel1.input_state;;
-        break;
+		return channel1.input_state;
 	default:
-		return ExceptionCode::IllegalDataAddress;
+		return Result::IllegalDataAddress;
 	}
-
-	return ExceptionCode::OK;
 }
 
 static WBMR modbus(&huart1, 145);

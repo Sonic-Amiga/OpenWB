@@ -89,7 +89,7 @@ uint16_t ModbusRTUSlave::crc16(const uint8_t *nData, uint16_t wLength)
 }
 
 
-void ModbusRTUSlave::throwException(ExceptionCode exceptionCode)
+void ModbusRTUSlave::throwException(uint8_t exceptionCode)
 {
 	m_OutputFrame[0] = m_SlaveID;
 	m_OutputFrame[1] = m_InputFrame[1] + FunctionCode::Exception;
@@ -148,9 +148,7 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 {
 	uint16_t targetRegister, targetRegisterLength;
 	uint8_t dataLength;
-	ExceptionCode result;
-	bool bValue;
-	uint16_t iValue;
+	uint32_t result;
 
 	switch (frame[1])
 	{
@@ -167,16 +165,16 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         // Loop through requested registers
         for (uint16_t i = 0; i < targetRegisterLength; i++)
         {
-        	result = onReadCoil(targetRegister + i, bValue);
-        	if (result != ExceptionCode::OK)
+        	result = onReadCoil(targetRegister + i);
+        	if (result & Result::ErrorFlag)
             {
                 // Throw exception if register is not valid
-                throwException(result);
+                throwException(result & Result::ValueMask);
                 return;
             }
 
             // Write register value to response frame
-            BIT_SET(m_OutputFrame[3 + (i / 8)], i % 8, bValue);
+            BIT_SET(m_OutputFrame[3 + (i / 8)], i % 8, result);
         }
 
         // Send response frame to master
@@ -185,12 +183,10 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 
 	case WriteSingleCoil:
         targetRegister = read_unaligned_be16(&frame[2]);
-        bValue = !!read_unaligned_be16(&frame[4]);
-        result = onWriteCoil(targetRegister, bValue);
-    
-        if (result != ExceptionCode::OK)
+        result = onWriteCoil(targetRegister, !!read_unaligned_be16(&frame[4]));
+        if (result & Result::ErrorFlag)
         {
-            throwException(result);
+            throwException(result & Result::ValueMask);
             return;
         }
 
@@ -203,20 +199,18 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 
         for (uint16_t i = 0; i < targetRegisterLength; i++)
         {
-        	bValue = BIT_CHECK(frame[7 + (i / 8)], i % 8);
-            result = onWriteCoil(targetRegister + i, bValue);
-
-            if (result != ExceptionCode::OK)
+            result = onWriteCoil(targetRegister + i, BIT_CHECK(frame[7 + (i / 8)], i % 8));
+            if (result & Result::ErrorFlag)
             {
-                // Throw exception if register is non-existent or incorrect type
-                throwException(ExceptionCode::IllegalDataAddress);
+                throwException(result & Result::ValueMask);
                 return;
             }
         }
 
-        iValue = *(uint16_t*)&frame[6];
+        // Reuse some variable for temporary storage
+        targetRegister = *(uint16_t*)&frame[6];
         sendFrame(frame, 6);
-        *(uint16_t*)&frame[6] = iValue;
+        *(uint16_t*)&frame[6] = targetRegister;
         break;
 
     case ReadDiscreteInputs:
@@ -232,16 +226,15 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         // Loop through requested registers
         for (uint16_t i = 0; i < targetRegisterLength; i++)
         {
-        	result = onReadDiscrete(targetRegister + i, bValue);
-        	if (result != ExceptionCode::OK)
+        	result = onReadDiscrete(targetRegister + i);
+            if (result & Result::ErrorFlag)
             {
-                //  Throw exception if register is not valid
-                throwException(ExceptionCode::IllegalDataAddress);
+                throwException(result & Result::ValueMask);
                 return;
             }
 
             // Write register value to response frame
-            BIT_SET(m_OutputFrame[3 + (i / 8)], i % 8, bValue);
+            BIT_SET(m_OutputFrame[3 + (i / 8)], i % 8, result);
         }
 
         // Send response frame to master
@@ -261,15 +254,14 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         // Loop through requested registers
         for (uint16_t i = 0; i < targetRegisterLength; i++)
         {
-            result = onReadHolding(targetRegister + i, iValue);
-            if (result != ExceptionCode::OK)
+            result = onReadHolding(targetRegister + i);
+            if (result & Result::ErrorFlag)
             {
-                // Throw exception if register is not valid
-                throwException(ExceptionCode::IllegalDataAddress);
+                throwException(result & Result::ValueMask);
                 return;
             }
 
-            write_unaligned_be16(&m_OutputFrame[3 + (i * 2)], iValue);
+            write_unaligned_be16(&m_OutputFrame[3 + (i * 2)], result);
         }
 
         // Send response frame to master
@@ -278,13 +270,10 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 
     case WriteSingleRegister:
         targetRegister = read_unaligned_be16(&frame[2]);
-        iValue = read_unaligned_be16(&frame[4]);
-        result = onWriteHolding(targetRegister, iValue);
-    
-        if (result != ExceptionCode::OK)
+        result = onWriteHolding(targetRegister, read_unaligned_be16(&frame[4]));
+        if (result & Result::ErrorFlag)
         {
-            // Throw exception if exister is non-existent or incorrect type
-            throwException(ExceptionCode::IllegalDataAddress);
+            throwException(result & Result::ValueMask);
             return;
         }
 
@@ -297,13 +286,10 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 
         for (uint16_t i = 0; i < targetRegisterLength; i++)
         {
-    	    iValue = read_unaligned_be16(&frame[7 + (i * 2)]);
-            result = onWriteHolding(targetRegister + i, iValue);
-
-            if (result != ExceptionCode::OK)
+            result = onWriteHolding(targetRegister + i, read_unaligned_be16(&frame[7 + (i * 2)]));
+            if (result & Result::ErrorFlag)
             {
-                // Throw exception if register is non-existent or incorrect type
-                throwException(ExceptionCode::IllegalDataAddress);
+                throwException(result & Result::ValueMask);
                 return;
             }
         }
@@ -331,16 +317,14 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         // Loop through requested registers
         for (uint16_t i = 0; i < targetRegisterLength; i++)
         {
-        	result = onReadInput(targetRegister + i, iValue);
-            // Check if register is valid
-        	if (result != ExceptionCode::OK)
+        	result = onReadInput(targetRegister + i);
+            if (result & Result::ErrorFlag)
             {
-                // Throw exception if register is not valid
-                throwException(ExceptionCode::IllegalDataAddress);
+                throwException(result & Result::ValueMask);
                 return;
             }
 
-            write_unaligned_be16(&m_OutputFrame[3 + (i * 2)], iValue);
+            write_unaligned_be16(&m_OutputFrame[3 + (i * 2)], result);
         }
 
         //Send response frame to master
