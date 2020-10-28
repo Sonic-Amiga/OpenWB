@@ -99,6 +99,9 @@ void ModbusRTUSlave::throwException(uint8_t exceptionCode)
 
 bool ModbusRTUSlave::receiveFrame()
 {
+	// FIXME: Just some value for testing (500 ms).
+	// The spec mandates this to be 1.5 chars or 750us when baudrate >= 19200
+	uint32_t timeout = 500;
 	// Minimum modbus frame size:
 	// 1 byte  - slave ID
 	// 1 byte  - function code
@@ -106,7 +109,7 @@ bool ModbusRTUSlave::receiveFrame()
 	// 2 bytes - quantity of registers to read
 	// 2 bytes - CRC
 	uint16_t length = 8;
-    HAL_StatusTypeDef result = HAL_UART_Receive(m_uart, m_InputFrame, length, 500);
+    HAL_StatusTypeDef result = HAL_UART_Receive(m_uart, m_InputFrame, length, timeout);
 
     if (result != HAL_OK)
 	    return false;
@@ -123,7 +126,7 @@ bool ModbusRTUSlave::receiveFrame()
     	// 1 byte - subsequent data length in bytes
     	uint16_t extra_len = m_InputFrame[6] + 1;
 
-    	result = HAL_UART_Receive(m_uart, &m_InputFrame[8], extra_len, 500);
+    	result = HAL_UART_Receive(m_uart, &m_InputFrame[8], extra_len, timeout);
 
         if (result != HAL_OK)
     	    return false;
