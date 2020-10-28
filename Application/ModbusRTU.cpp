@@ -120,11 +120,15 @@ bool ModbusRTUSlave::receiveFrame()
     else if (m_InputFrame[1] == FunctionCode::WriteMultipleCoils ||
     		m_InputFrame[1] == FunctionCode::WriteMultipleRegisters)
     {
-    	length += m_InputFrame[8];
-    	result = HAL_UART_Receive(m_uart, &m_InputFrame[8],  m_InputFrame[6], 500);
+    	// 1 byte - subsequent data length in bytes
+    	uint16_t extra_len = m_InputFrame[6] + 1;
+
+    	result = HAL_UART_Receive(m_uart, &m_InputFrame[8], extra_len, 500);
 
         if (result != HAL_OK)
     	    return false;
+
+        length += extra_len;
     }
     else
     {
@@ -207,10 +211,7 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
             }
         }
 
-        // Reuse some variable for temporary storage
-        targetRegister = *(uint16_t*)&frame[6];
         sendFrame(frame, 6);
-        *(uint16_t*)&frame[6] = targetRegister;
         break;
 
     case ReadDiscreteInputs:
