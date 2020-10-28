@@ -2,7 +2,6 @@
  * Based on ModbusRTU library by norgor: https://github.com/norgor/ModbusRTU.git
  */
 
-#include <Arduino.h>
 #include <ModbusRTU.h>
 
 #define BIT_SET(variable, bit, value) \

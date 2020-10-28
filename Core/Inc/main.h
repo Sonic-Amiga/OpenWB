@@ -55,6 +55,7 @@ extern UART_HandleTypeDef huart1;
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
+void loop(void); // Arduino-style
 
 /* USER CODE END EFP */
 
