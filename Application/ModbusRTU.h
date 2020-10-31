@@ -46,6 +46,10 @@ protected:
 		return Result::IllegalDataAddress;
 	}
 
+	virtual uint32_t validateCoil(uint16_t reg) {
+		return Result::IllegalDataAddress;
+	}
+
 	virtual uint32_t onWriteCoil(uint16_t reg, bool value) {
 		return Result::IllegalDataAddress;
 	}
@@ -59,6 +63,10 @@ protected:
 	}
 
 	virtual uint32_t onReadHolding(uint16_t reg) {
+		return Result::IllegalDataAddress;
+	}
+
+	virtual uint32_t validateHolding(uint16_t reg, uint16_t value) {
 		return Result::IllegalDataAddress;
 	}
 

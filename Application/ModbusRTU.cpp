@@ -165,7 +165,7 @@ void ModbusRTUSlave::sendFrame(uint8_t *pFrame, uint8_t frameLength)
 uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 {
 	uint8_t function = frame[1];
-	uint16_t targetRegister, targetRegisterLength;
+	uint16_t targetRegister, targetRegisterLength, data;
 	uint8_t dataLength;
 	uint32_t result;
 
@@ -194,7 +194,9 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 
 	case WriteSingleCoil:
         targetRegister = read_unaligned_be16(&frame[2]);
-        result = onWriteCoil(targetRegister, !!read_unaligned_be16(&frame[4]));
+        result = validateCoil(targetRegister);
+        if (result == Result::OK)
+            result = onWriteCoil(targetRegister, !!read_unaligned_be16(&frame[4]));
         dataLength = responseFromFrame(frame);
         break;
 
@@ -204,9 +206,19 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 
         for (uint16_t i = 0; i < targetRegisterLength; i++)
         {
-            result = onWriteCoil(targetRegister + i, BIT_CHECK(frame[7 + (i / 8)], i % 8));
-            if (result & Result::ErrorFlag)
+        	result = validateCoil(targetRegister + i);
+            if (result != Result::OK)
             	break;
+        }
+
+        if (result == Result::OK)
+        {
+            for (uint16_t i = 0; i < targetRegisterLength; i++)
+            {
+                result = onWriteCoil(targetRegister + i, BIT_CHECK(frame[7 + (i / 8)], i % 8));
+                if (result != Result::OK)
+                	break;
+            }
         }
 
         dataLength = responseFromFrame(frame);
@@ -253,7 +265,10 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 
     case WriteSingleRegister:
         targetRegister = read_unaligned_be16(&frame[2]);
-        result = onWriteHolding(targetRegister, read_unaligned_be16(&frame[4]));
+        data = read_unaligned_be16(&frame[4]);
+        result = validateHolding(targetRegister, data);
+        if (result == Result::OK)
+            result = onWriteHolding(targetRegister, data);
         dataLength = responseFromFrame(frame);
         break;
 
@@ -263,11 +278,20 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 
         for (uint16_t i = 0; i < targetRegisterLength; i++)
         {
-            result = onWriteHolding(targetRegister + i, read_unaligned_be16(&frame[7 + (i * 2)]));
-            if (result & Result::ErrorFlag)
+        	data = read_unaligned_be16(&frame[7 + (i * 2)]);
+            result = validateHolding(targetRegister + i, data);
+            if (result != Result::OK)
+            	break;
+        }
+
+        if (result == Result::OK)
+        {
+            for (uint16_t i = 0; i < targetRegisterLength; i++)
             {
-                throwException(result & Result::ValueMask);
-                return Result::OK;
+        	    data = read_unaligned_be16(&frame[7 + (i * 2)]);
+                result = onWriteHolding(targetRegister + i, data);
+                if (result & Result::ErrorFlag)
+                	break;
             }
         }
 
