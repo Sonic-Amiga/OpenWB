@@ -7,21 +7,80 @@ static const char model[7]      = "WBMR2";
 static const char version[16]   = "0.1";
 static const char signature[12] = "OpenWB";
 
-static uint32_t uptime = 0;
+class CountdownTimer
+{
+public:
+	CountdownTimer(uint16_t start_value = 0) : time_count(start_value)
+    {}
 
-class ChannelHandler
+	void onTick()
+	{
+	    if (time_count <= uwTickFreq)
+	    {
+	    	time_count = 0;
+			onTimeout();
+	    }
+		else
+		{
+			time_count -= uwTickFreq;
+		}
+	}
+
+	void startTimer(uint32_t timeout)
+	{
+		time_count = timeout;
+	}
+
+	bool isTimedOut() const
+	{
+		return time_count == 0;
+	}
+
+protected:
+	virtual void onTimeout() {}
+
+private:
+    uint16_t time_count;
+};
+
+class UptimeCounter : public CountdownTimer
+{
+public:
+	UptimeCounter() : CountdownTimer(1000), seconds(0) {}
+
+	uint32_t seconds;
+
+protected:
+	void onTimeout() override
+	{
+		seconds++;
+		startTimer(1000);
+	}
+};
+
+class LEDTimer : public CountdownTimer
+{
+public:
+	// LED pin is inverted in hardware
+	void Blink()
+	{
+		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+		startTimer(100); // 0.1 sec
+	}
+
+protected:
+	void onTimeout() override
+	{
+		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+	}
+};
+
+class ChannelHandler : public CountdownTimer
 {
 public:
   ChannelHandler(uint16_t relay, uint16_t input) : relay_pin(relay), input_pin(input) {}
 
   void onInterrupt();
-  void onTick()
-  {
-	  if (delay <= uwTickFreq)
-		  delay = 0;
-	  else
-		  delay -= uwTickFreq;
-  }
 
   void setRelayState(bool state)
   {
@@ -46,7 +105,6 @@ public:
 private:
   const uint16_t relay_pin;
   const uint16_t input_pin;
-  uint32_t delay = 0;
 };
 
 void ChannelHandler::onInterrupt()
@@ -56,7 +114,7 @@ void ChannelHandler::onInterrupt()
     {
         GPIO_Set_Trigger(input_pin, RISING_EDGE);
 
-        if (delay)
+        if (!isTimedOut())
             return;
 
         setRelayState(!relay_state);
@@ -64,12 +122,14 @@ void ChannelHandler::onInterrupt()
     else
     {
     	GPIO_Set_Trigger(input_pin, FALLING_EDGE);
-    	delay = debounce;
+    	startTimer(debounce);
     }
 }
 
 static ChannelHandler channel0(RELAY0_Pin, INPUT0_Pin);
 static ChannelHandler channel1(RELAY1_Pin, INPUT1_Pin);
+static UptimeCounter uptime;
+static LEDTimer led;
 
 class WBMR : public ModbusRTUSlave
 {
@@ -88,6 +148,11 @@ public:
 	}
 
 protected:
+	void onFrameReceived() override
+	{
+		led.Blink();
+	}
+
 	uint32_t onWriteCoil(uint16_t reg, bool value) override;
 	uint32_t onReadCoil(uint16_t reg) override;
 	uint32_t onReadDiscrete(uint16_t reg) override;
@@ -156,7 +221,7 @@ uint32_t WBMR::onReadDiscrete(uint16_t reg)
 
 uint32_t WBMR::onReadInput(uint16_t reg)
 {
-	BE32_REG(reg, 104, uptime);
+	BE32_REG(reg, 104, uptime.seconds);
 	STRING_REG(reg, 200, model);
 	STRING_REG(reg, 250, version);
 	STRING_REG(reg, 290, signature);
@@ -222,8 +287,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
 	}
 }
 
-static uint16_t second_counter = 0;
-
 void HAL_IncTick(void)
 {
 	// Do not forget to drive HAL's own time counter
@@ -231,11 +294,6 @@ void HAL_IncTick(void)
 
     channel0.onTick();
     channel1.onTick();
-
-    second_counter += uwTickFreq;
-    if (second_counter >= 1000)
-    {
-    	uptime++;
-    	second_counter = 0;
-    }
+    uptime.onTick();
+    led.onTick();
 }

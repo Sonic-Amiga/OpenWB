@@ -151,6 +151,8 @@ uint32_t ModbusRTUSlave::receiveFrame()
 		}
 	} while (!received);
 
+	onFrameReceived();
+
     return parseFrame(m_InputFrame, length);
 }
 

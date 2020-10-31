@@ -38,6 +38,10 @@ public:
 	uint32_t receiveFrame();
 
 protected:
+	// Signal that a frame has been received. You can use this in order
+	// to e. g. drive activity indicator.
+	virtual void onFrameReceived() {};
+
 	virtual uint32_t onReadCoil(uint16_t reg) {
 		return Result::IllegalDataAddress;
 	}
