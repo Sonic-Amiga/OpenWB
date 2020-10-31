@@ -97,55 +97,60 @@ void ModbusRTUSlave::throwException(uint8_t exceptionCode)
 	sendFrame(m_OutputFrame, 3);
 }
 
-bool ModbusRTUSlave::receiveFrame()
+uint32_t ModbusRTUSlave::receiveFrame()
 {
 	// FIXME: Just some value for testing (500 ms).
 	// The spec mandates this to be 1.5 chars or 750us when baudrate >= 19200
 	uint32_t timeout = 500;
-	// Minimum modbus frame size:
-	// 1 byte  - slave ID
-	// 1 byte  - function code
-	// 2 bytes - starting address of the register
-	// 2 bytes - quantity of registers to read
-	// 2 bytes - CRC
-	uint16_t length = 8;
-    HAL_StatusTypeDef result = HAL_UART_Receive(m_uart, m_InputFrame, length, timeout);
+	uint16_t length;
+	HAL_StatusTypeDef result;
+	bool received = false;
 
-    if (result != HAL_OK)
-	    return false;
+	do
+	{
+		// Minimum modbus frame size:
+		// 1 byte  - slave ID
+		// 1 byte  - function code
+		// 2 bytes - starting address of the register
+		// 2 bytes - quantity of registers to read
+		// 2 bytes - CRC
+		length = 8;
 
-    //Function length check
-    if (m_InputFrame[1] >= FunctionCode::ReadCoils &&
-    	m_InputFrame[1] <= FunctionCode::WriteSingleRegister)
-    {
-    	// parse
-    }
-    else if (m_InputFrame[1] == FunctionCode::WriteMultipleCoils ||
-    		m_InputFrame[1] == FunctionCode::WriteMultipleRegisters)
-    {
-    	// 1 byte - subsequent data length in bytes
-    	uint16_t extra_len = m_InputFrame[6] + 1;
+		result = HAL_UART_Receive(m_uart, m_InputFrame, length, timeout);
+		if (result != HAL_OK)
+			continue;
 
-    	result = HAL_UART_Receive(m_uart, &m_InputFrame[8], extra_len, timeout);
+		//Function length check
+		if (m_InputFrame[1] >= FunctionCode::ReadCoils &&
+			m_InputFrame[1] <= FunctionCode::WriteSingleRegister)
+		{
+			// parse
+		}
+		else if (m_InputFrame[1] == FunctionCode::WriteMultipleCoils ||
+				m_InputFrame[1] == FunctionCode::WriteMultipleRegisters)
+		{
+			// 1 byte - subsequent data length in bytes
+			uint16_t extra_len = m_InputFrame[6] + 1;
 
-        if (result != HAL_OK)
-    	    return false;
+			result = HAL_UART_Receive(m_uart, &m_InputFrame[8], extra_len, timeout);
 
-        length += extra_len;
-    }
-    else
-    {
-    	return false; // Some rubbish received, just drop
-    }
+			if (result != HAL_OK)
+				continue; // Restart from the beginning if timeout
 
-    if (m_InputFrame[0] != m_SlaveID)
-    	return false; // Not for us, drop
+			length += extra_len;
+		}
+		else
+		{
+			continue; // Some rubbish received, just drop
+		}
 
-    if (crc16(m_InputFrame, length - 2) != read_unaligned_le16(&m_InputFrame[length - 2]))
-    	return false; // CRC mismatch, drop
+		if (m_InputFrame[0] == m_SlaveID)
+		{
+            received = (crc16(m_InputFrame, length - 2) == read_unaligned_le16(&m_InputFrame[length - 2]));
+		}
+	} while (!received);
 
-    parseFrame(m_InputFrame, length);
-    return true;
+    return parseFrame(m_InputFrame, length);
 }
 
 void ModbusRTUSlave::sendFrame(uint8_t *pFrame, uint8_t frameLength)
@@ -154,7 +159,7 @@ void ModbusRTUSlave::sendFrame(uint8_t *pFrame, uint8_t frameLength)
 	send(pFrame, frameLength + 2);
 }
 
-void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
+uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 {
 	uint16_t targetRegister, targetRegisterLength;
 	uint8_t dataLength;
@@ -177,30 +182,25 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         {
         	result = onReadCoil(targetRegister + i);
         	if (result & Result::ErrorFlag)
-            {
-                // Throw exception if register is not valid
-                throwException(result & Result::ValueMask);
-                return;
-            }
+        		break;
 
             // Write register value to response frame
             BIT_SET(m_OutputFrame[3 + (i / 8)], i % 8, result);
         }
 
-        // Send response frame to master
-        sendFrame(m_OutputFrame, 3 + dataLength);
         break;
 
 	case WriteSingleCoil:
         targetRegister = read_unaligned_be16(&frame[2]);
         result = onWriteCoil(targetRegister, !!read_unaligned_be16(&frame[4]));
-        if (result & Result::ErrorFlag)
+
+        if (!(result & Result::ErrorFlag))
         {
-            throwException(result & Result::ValueMask);
-            return;
+            // Our input frame is our response, just send it back
+            send(frame, 8);
+            return Result::OK;
         }
 
-        send(frame, 8);
         break;
 
     case WriteMultipleCoils:
@@ -211,13 +211,10 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         {
             result = onWriteCoil(targetRegister + i, BIT_CHECK(frame[7 + (i / 8)], i % 8));
             if (result & Result::ErrorFlag)
-            {
-                throwException(result & Result::ValueMask);
-                return;
-            }
+            	break;
         }
 
-        sendFrame(frame, 6);
+        dataLength = 3;
         break;
 
     case ReadDiscreteInputs:
@@ -235,17 +232,12 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         {
         	result = onReadDiscrete(targetRegister + i);
             if (result & Result::ErrorFlag)
-            {
-                throwException(result & Result::ValueMask);
-                return;
-            }
+            	break;
 
             // Write register value to response frame
             BIT_SET(m_OutputFrame[3 + (i / 8)], i % 8, result);
         }
 
-        // Send response frame to master
-        sendFrame(m_OutputFrame, dataLength + 3);
         break;
 
     case ReadMultipleHoldingRegisters:
@@ -263,28 +255,24 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         {
             result = onReadHolding(targetRegister + i);
             if (result & Result::ErrorFlag)
-            {
-                throwException(result & Result::ValueMask);
-                return;
-            }
+            	break;
 
             write_unaligned_be16(&m_OutputFrame[3 + (i * 2)], result);
         }
 
-        // Send response frame to master
-        sendFrame(m_OutputFrame, dataLength + 3);
         break;
 
     case WriteSingleRegister:
         targetRegister = read_unaligned_be16(&frame[2]);
         result = onWriteHolding(targetRegister, read_unaligned_be16(&frame[4]));
-        if (result & Result::ErrorFlag)
+
+        if (!(result & Result::ErrorFlag))
         {
-            throwException(result & Result::ValueMask);
-            return;
+            // Our input frame is our response, just send it back
+            send(frame, 8);
+            return Result::OK;
         }
 
-        send(frame, 8);
         break;
 
     case WriteMultipleRegisters:
@@ -297,7 +285,7 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
             if (result & Result::ErrorFlag)
             {
                 throwException(result & Result::ValueMask);
-                return;
+                return Result::OK;
             }
         }
 
@@ -308,7 +296,7 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         m_OutputFrame[4] = frame[4];
         m_OutputFrame[5] = frame[5];
 
-        sendFrame(m_OutputFrame, 6);
+        dataLength = 3;
         break;
 
     case ReadInputRegisters:
@@ -326,16 +314,23 @@ void ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
         {
         	result = onReadInput(targetRegister + i);
             if (result & Result::ErrorFlag)
-            {
-                throwException(result & Result::ValueMask);
-                return;
-            }
+            	break;
 
             write_unaligned_be16(&m_OutputFrame[3 + (i * 2)], result);
         }
 
-        //Send response frame to master
-        sendFrame(m_OutputFrame, dataLength + 3);
         break;
     }
+
+    // Send response frame to master
+    if (result & Result::ErrorFlag)
+    {
+        throwException(result & Result::ValueMask);
+    }
+    else
+    {
+        sendFrame(m_OutputFrame, dataLength + 3);
+    }
+
+    return result;
 }

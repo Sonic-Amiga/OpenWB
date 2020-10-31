@@ -35,7 +35,7 @@ public:
 	{
 	}
 
-	bool receiveFrame();
+	uint32_t receiveFrame();
 
 protected:
 	virtual uint32_t onReadCoil(uint16_t reg) {
@@ -97,7 +97,7 @@ private:
 	//Parses input frame
 	//
 	//
-	void parseFrame(uint8_t *frame, uint16_t frameLength);
+	uint32_t parseFrame(uint8_t *frame, uint16_t frameLength);
 
 	void send(uint8_t* frame, uint16_t length) {
 	    HAL_UART_Transmit(m_uart, frame, length, 0xFFFF);
