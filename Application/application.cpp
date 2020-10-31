@@ -127,6 +127,8 @@ class WBMR : public ModbusRTUSlave
 public:
 	WBMR(UART_HandleTypeDef *uart) : ModbusRTUSlave(uart, 145) {}
 
+	uint32_t receiveFrame();
+
 protected:
 	void onFrameReceived() override
 	{
@@ -146,6 +148,8 @@ private:
 	uint16_t baud_rate = 96;
 	uint16_t parity    = 0;
 	uint16_t stop_bits = 2;
+
+	bool cfg_changed = false;
 };
 
 uint32_t WBMR::validateCoil(uint16_t reg)
@@ -253,6 +257,30 @@ uint32_t WBMR::validateHolding(uint16_t reg, uint16_t value)
 		if (value > 100)
 			return Result::IllegalDataValue;
 		break;
+	case 110:
+		switch (value)
+		{
+		case 12:
+		case 24:
+		case 48:
+		case 96:
+		case 192:
+		case 384:
+		case 576:
+		case 1152:
+			break;
+		default:
+			return Result::IllegalDataValue;
+		}
+		break;
+	case 111:
+		if (value > 2)
+			return Result::IllegalDataValue;
+	    break;
+	case 112:
+		if (value < 1 || value > 2)
+			return Result::IllegalDataValue;
+		break;
 	case 128:
 		if (value < 1 || value > 247)
 			return Result::IllegalDataValue;
@@ -274,6 +302,18 @@ uint32_t WBMR::onWriteHolding(uint16_t reg, uint16_t value)
 	case 21:
 		channel1.debounce = value;
 		break;
+	case 110:
+		baud_rate   = value;
+		cfg_changed = true;
+		break;
+	case 111:
+		parity      = value;
+		cfg_changed = true;
+		break;
+	case 112:
+		stop_bits   = value;
+		cfg_changed = true;
+		break;
 	case 128:
 		// It's OK to change m_SlaveID during the transaction.
 		// The response will be correctly sent from an old address
@@ -282,6 +322,37 @@ uint32_t WBMR::onWriteHolding(uint16_t reg, uint16_t value)
 	}
 
 	return Result::OK;
+}
+
+static const uint32_t stop_bits_table[] =
+{
+	0,
+	UART_STOPBITS_1,
+	UART_STOPBITS_2
+};
+
+static const uint32_t parity_table[] =
+{
+	UART_PARITY_NONE,
+	UART_PARITY_ODD,
+	UART_PARITY_EVEN
+};
+
+uint32_t WBMR::receiveFrame()
+{
+	uint32_t result = ModbusRTUSlave::receiveFrame();
+
+	if (cfg_changed)
+	{
+		m_uart->Init.BaudRate = baud_rate * 100;
+		m_uart->Init.StopBits = stop_bits_table[stop_bits];
+		m_uart->Init.Parity   = parity_table[parity];
+
+		UART_SetConfig(m_uart);
+		cfg_changed = false;
+	}
+
+	return result;
 }
 
 static WBMR modbus(&huart1);
