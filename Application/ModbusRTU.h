@@ -84,6 +84,25 @@ private:
 
 	static uint16_t crc16(const uint8_t *nData, uint16_t wLength);
 
+	void initResponse(uint8_t function, uint8_t dataLength)
+	{
+        m_OutputFrame[0] = m_SlaveID;
+        m_OutputFrame[1] = function;
+        m_OutputFrame[2] = dataLength;
+	}
+
+	uint8_t responseFromFrame(const uint8_t* frame)
+	{
+        m_OutputFrame[0] = m_SlaveID;
+        m_OutputFrame[1] = frame[1];
+        m_OutputFrame[2] = frame[2];
+        m_OutputFrame[3] = frame[3];
+        m_OutputFrame[4] = frame[4];
+        m_OutputFrame[5] = frame[5];
+
+        return 3;
+	}
+
 	// Sends exception to master
 	// Uses last received frame as function code
 	//
