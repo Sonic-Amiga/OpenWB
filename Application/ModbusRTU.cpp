@@ -91,9 +91,7 @@ uint16_t ModbusRTUSlave::crc16(const uint8_t *nData, uint16_t wLength)
 
 void ModbusRTUSlave::throwException(uint8_t exceptionCode)
 {
-	m_OutputFrame[0] = m_SlaveID;
-	m_OutputFrame[1] = m_InputFrame[1] + FunctionCode::Exception;
-	m_OutputFrame[2] = exceptionCode;
+	initResponse(m_InputFrame[1] + FunctionCode::Exception, exceptionCode);
 	sendFrame(m_OutputFrame, 3);
 }
 
@@ -166,7 +164,7 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 {
 	uint8_t function = frame[1];
 	uint16_t targetRegister, targetRegisterLength, data;
-	uint8_t dataLength;
+	uint8_t responseLength;
 	uint32_t result;
 
 	switch (function)
@@ -174,10 +172,10 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 	case ReadCoils:
         targetRegister = read_unaligned_be16(&frame[2]);
         targetRegisterLength = read_unaligned_be16(&frame[4]);
-        dataLength = div_roundup(targetRegisterLength, 8);
+        responseLength = div_roundup(targetRegisterLength, 8);
 
         // Write frame header
-        initResponse(function, dataLength);
+        initResponse(function, responseLength);
 
         // Loop through requested registers
         for (uint16_t i = 0; i < targetRegisterLength; i++)
@@ -194,15 +192,18 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 
 	case WriteSingleCoil:
         targetRegister = read_unaligned_be16(&frame[2]);
+        responseLength = responseFromFrame(frame);
+
         result = validateCoil(targetRegister);
         if (result == Result::OK)
             result = onWriteCoil(targetRegister, !!read_unaligned_be16(&frame[4]));
-        dataLength = responseFromFrame(frame);
+
         break;
 
     case WriteMultipleCoils:
         targetRegister = read_unaligned_be16(&frame[2]);
         targetRegisterLength = read_unaligned_be16(&frame[4]);
+        responseLength = responseFromFrame(frame);
 
         for (uint16_t i = 0; i < targetRegisterLength; i++)
         {
@@ -221,15 +222,14 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
             }
         }
 
-        dataLength = responseFromFrame(frame);
         break;
 
     case ReadDiscreteInputs:
         targetRegister = read_unaligned_be16(&frame[2]);
         targetRegisterLength = read_unaligned_be16(&frame[4]);
-        dataLength = div_roundup(targetRegisterLength, 8);
+        responseLength = div_roundup(targetRegisterLength, 8);
 
-        initResponse(function, dataLength);
+        initResponse(function, responseLength);
 
         // Loop through requested registers
         for (uint16_t i = 0; i < targetRegisterLength; i++)
@@ -247,9 +247,9 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
     case ReadMultipleHoldingRegisters:
         targetRegister = read_unaligned_be16(&frame[2]);
         targetRegisterLength = read_unaligned_be16(&frame[4]);
-        dataLength = targetRegisterLength * 2;
+        responseLength = targetRegisterLength * 2;
 
-        initResponse(function, dataLength);
+        initResponse(function, responseLength);
 
         // Loop through requested registers
         for (uint16_t i = 0; i < targetRegisterLength; i++)
@@ -265,16 +265,19 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 
     case WriteSingleRegister:
         targetRegister = read_unaligned_be16(&frame[2]);
+        responseLength = responseFromFrame(frame);
+
         data = read_unaligned_be16(&frame[4]);
         result = validateHolding(targetRegister, data);
         if (result == Result::OK)
             result = onWriteHolding(targetRegister, data);
-        dataLength = responseFromFrame(frame);
+
         break;
 
     case WriteMultipleRegisters:
         targetRegister = read_unaligned_be16(&frame[2]);
         targetRegisterLength = read_unaligned_be16(&frame[4]);
+        responseLength = responseFromFrame(frame);
 
         for (uint16_t i = 0; i < targetRegisterLength; i++)
         {
@@ -295,15 +298,14 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
             }
         }
 
-        dataLength = responseFromFrame(frame);
         break;
 
     case ReadInputRegisters:
         targetRegister = read_unaligned_be16(&frame[2]);
         targetRegisterLength = read_unaligned_be16(&frame[4]);
-        dataLength = targetRegisterLength * 2;
+        responseLength = targetRegisterLength * 2;
 
-        initResponse(function, dataLength);
+        initResponse(function, responseLength);
 
         // Loop through requested registers
         for (uint16_t i = 0; i < targetRegisterLength; i++)
@@ -325,7 +327,7 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
     }
     else
     {
-        sendFrame(m_OutputFrame, dataLength + 3);
+        sendFrame(m_OutputFrame, responseLength + 3);
     }
 
     return result;
