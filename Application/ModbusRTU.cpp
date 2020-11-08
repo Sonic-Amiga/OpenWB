@@ -3,6 +3,7 @@
  */
 
 #include <ModbusRTU.h>
+#include "hal_extras.h"
 
 #define BIT_SET(variable, bit, value) \
     if (value)                        \
@@ -90,29 +91,27 @@ uint16_t ModbusRTUSlave::crc16(const uint8_t *nData, uint16_t wLength)
 
 uint32_t ModbusRTUSlave::receiveFrame()
 {
-	// FIXME: Just some value for testing (100 ms). Proper values don't work for some reason.
-	// The spec mandates this to be 1.5 chars or 750us when baudrate >= 19200
-	uint32_t timeout = 100;
-	uint16_t length;
+	// FIXME: The spec mandates this to be 1.5 chars or 750us when baudrate >= 19200
+	// However our timers we currently use don't have enough resolution, so we have to
+	// enlarge our values a bit.
+	uint32_t timeout = 2;
+
+	if (m_uart->Init.BaudRate < 9600)
+		timeout = div_roundup(16500, m_uart->Init.BaudRate);
 
 	while (true)
 	{
-		HAL_StatusTypeDef result = HAL_UART_Receive(m_uart, m_InputFrame, 1, HAL_MAX_DELAY);
-
-		if (result != HAL_OK)
-			continue;
-
 		// Minimum modbus frame size:
 		// 1 byte  - slave ID
 		// 1 byte  - function code
 		// 2 bytes - starting address of the register
 		// 2 bytes - quantity of registers to read
 		// 2 bytes - CRC
-		result = HAL_UART_Receive(m_uart, &m_InputFrame[1], 7, timeout);
+		uint16_t length = 8;
+		HAL_StatusTypeDef result = ModBus_Receive(m_uart, m_InputFrame, length, HAL_MAX_DELAY, timeout);
+
 		if (result != HAL_OK)
 			continue;
-
-		length = 8;
 
 		//Function length check
 		if (m_InputFrame[1] >= FunctionCode::ReadCoils &&
@@ -126,7 +125,7 @@ uint32_t ModbusRTUSlave::receiveFrame()
 			// 1 byte - subsequent data length in bytes
 			uint16_t extra_len = m_InputFrame[6] + 1;
 
-			result = HAL_UART_Receive(m_uart, &m_InputFrame[8], extra_len, timeout);
+			result = ModBus_Receive(m_uart, &m_InputFrame[8], extra_len, timeout, timeout);
 
 			if (result != HAL_OK)
 				continue; // Restart from the beginning if timeout
