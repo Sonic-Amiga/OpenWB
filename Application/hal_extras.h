@@ -16,10 +16,10 @@ extern "C" {
 
 #include <inttypes.h>
 
-#define RISING_EDGE  0x00100000U
-#define FALLING_EDGE 0x00200000U
+#define RISING_EDGE  0x0001U
+#define FALLING_EDGE 0x0002U
 
-void GPIO_Set_Trigger(uint16_t pin, uint32_t mode);
+void GPIO_Set_Trigger(uint16_t pin, uint16_t mode);
 
 #ifdef __cplusplus
 }
