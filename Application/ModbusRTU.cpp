@@ -94,10 +94,11 @@ uint32_t ModbusRTUSlave::receiveFrame()
 	// The spec mandates this to be 1.5 chars or 750us when baudrate >= 19200
 	uint32_t timeout = 500;
 	uint16_t length;
-	HAL_StatusTypeDef result;
 
-	do
+	while (true)
 	{
+		HAL_StatusTypeDef result;
+
 		// Minimum modbus frame size:
 		// 1 byte  - slave ID
 		// 1 byte  - function code
@@ -135,17 +136,20 @@ uint32_t ModbusRTUSlave::receiveFrame()
 		}
 
 		// Zero is broadcast address according to spec
-		if (m_InputFrame[0] && m_InputFrame[0] != m_SlaveID)
-			continue;
+		if (m_InputFrame[0] == 0 || m_InputFrame[0] == m_SlaveID)
+		{
+		    if (crc16(m_InputFrame, length - 2) == read_unaligned_le16(&m_InputFrame[length - 2]))
+		    {
+			    onFrameReceived();
+		        uint32_t result = parseFrame(m_InputFrame, length);
 
-	} while (crc16(m_InputFrame, length - 2) != read_unaligned_le16(&m_InputFrame[length - 2]));
-
-	onFrameReceived();
-
-    return parseFrame(m_InputFrame, length);
+		        // Clear any leftover crap in the receive buffer
+		        __HAL_UART_SEND_REQ(m_uart, UART_RXDATA_FLUSH_REQUEST);
+		        return result;
+		    }
+		}
+	}
 }
-
-
 
 uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 {
