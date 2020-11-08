@@ -2,6 +2,7 @@
 #include "stm32f0xx_hal.h"
 #include "hal_extras.h"
 #include "ModbusRTU.h"
+#include "CountdownTimer.h"
 #include "registers.h"
 
 extern "C" { // This header is pure C
@@ -11,42 +12,6 @@ extern "C" { // This header is pure C
 static const char model[7]      = "WBMR2";
 static const char version[16]   = "0.1";
 static const char signature[12] = "OpenWB";
-
-class CountdownTimer
-{
-public:
-	CountdownTimer(uint16_t start_value = 0) : time_count(start_value)
-    {}
-
-	void onTick()
-	{
-	    if (time_count <= uwTickFreq)
-	    {
-	    	time_count = 0;
-			onTimeout();
-	    }
-		else
-		{
-			time_count -= uwTickFreq;
-		}
-	}
-
-	void startTimer(uint32_t timeout)
-	{
-		time_count = timeout;
-	}
-
-	bool isTimedOut() const
-	{
-		return time_count == 0;
-	}
-
-protected:
-	virtual void onTimeout() {}
-
-private:
-    uint16_t time_count;
-};
 
 class UptimeCounter : public CountdownTimer
 {
@@ -429,15 +394,4 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
 		channel1.onInterrupt();
 		break;
 	}
-}
-
-void HAL_IncTick(void)
-{
-	// Do not forget to drive HAL's own time counter
-    uwTick += uwTickFreq;
-
-    channel0.onTick();
-    channel1.onTick();
-    uptime.onTick();
-    led.onTick();
 }
