@@ -90,14 +90,17 @@ uint16_t ModbusRTUSlave::crc16(const uint8_t *nData, uint16_t wLength)
 
 uint32_t ModbusRTUSlave::receiveFrame()
 {
-	// FIXME: Just some value for testing (500 ms).
+	// FIXME: Just some value for testing (100 ms). Proper values don't work for some reason.
 	// The spec mandates this to be 1.5 chars or 750us when baudrate >= 19200
-	uint32_t timeout = 500;
+	uint32_t timeout = 100;
 	uint16_t length;
 
 	while (true)
 	{
-		HAL_StatusTypeDef result;
+		HAL_StatusTypeDef result = HAL_UART_Receive(m_uart, m_InputFrame, 1, HAL_MAX_DELAY);
+
+		if (result != HAL_OK)
+			continue;
 
 		// Minimum modbus frame size:
 		// 1 byte  - slave ID
@@ -105,11 +108,11 @@ uint32_t ModbusRTUSlave::receiveFrame()
 		// 2 bytes - starting address of the register
 		// 2 bytes - quantity of registers to read
 		// 2 bytes - CRC
-		length = 8;
-
-		result = HAL_UART_Receive(m_uart, m_InputFrame, length, timeout);
+		result = HAL_UART_Receive(m_uart, &m_InputFrame[1], 7, timeout);
 		if (result != HAL_OK)
 			continue;
+
+		length = 8;
 
 		//Function length check
 		if (m_InputFrame[1] >= FunctionCode::ReadCoils &&
