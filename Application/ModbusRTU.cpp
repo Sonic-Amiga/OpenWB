@@ -145,11 +145,7 @@ uint32_t ModbusRTUSlave::receiveFrame()
     return parseFrame(m_InputFrame, length);
 }
 
-void ModbusRTUSlave::sendFrame(uint8_t *pFrame, uint8_t frameLength)
-{
-	write_unaligned_le16(&pFrame[frameLength], crc16(pFrame, frameLength));
-	send(pFrame, frameLength + 2);
-}
+
 
 uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 {
@@ -315,12 +311,12 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
     if (result & Result::ErrorFlag)
     {
     	initResponse(m_InputFrame[1] + FunctionCode::Exception, result & Result::ValueMask);
-    	sendFrame(m_OutputFrame, 3);
+    	responseLength = 0;
     }
-    else
-    {
-        sendFrame(m_OutputFrame, responseLength + 3);
-    }
+
+    responseLength += 3;
+	write_unaligned_le16(&m_OutputFrame[responseLength], crc16(m_OutputFrame, responseLength));
+	send(m_OutputFrame, responseLength + 2);
 
     return result;
 }

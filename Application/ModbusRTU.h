@@ -115,11 +115,6 @@ private:
         return 3;
 	}
 
-	//Send response frame to master
-	//This function appends a CRC16 to the end of the frame
-	//
-	void sendFrame(uint8_t *pFrame, uint8_t frameLength);
-
 	//Parses input frame
 	//
 	//
