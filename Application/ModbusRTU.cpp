@@ -88,13 +88,6 @@ uint16_t ModbusRTUSlave::crc16(const uint8_t *nData, uint16_t wLength)
 	return wCRCWord;
 }
 
-
-void ModbusRTUSlave::throwException(uint8_t exceptionCode)
-{
-	initResponse(m_InputFrame[1] + FunctionCode::Exception, exceptionCode);
-	sendFrame(m_OutputFrame, 3);
-}
-
 uint32_t ModbusRTUSlave::receiveFrame()
 {
 	// FIXME: Just some value for testing (500 ms).
@@ -323,7 +316,8 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
     // Send response frame to master
     if (result & Result::ErrorFlag)
     {
-        throwException(result & Result::ValueMask);
+    	initResponse(m_InputFrame[1] + FunctionCode::Exception, result & Result::ValueMask);
+    	sendFrame(m_OutputFrame, 3);
     }
     else
     {

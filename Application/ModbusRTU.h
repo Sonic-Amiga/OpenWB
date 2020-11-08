@@ -107,20 +107,13 @@ private:
 
 	uint8_t responseFromFrame(const uint8_t* frame)
 	{
-        m_OutputFrame[0] = m_SlaveID;
-        m_OutputFrame[1] = frame[1];
-        m_OutputFrame[2] = frame[2];
+		initResponse(frame[1], frame[2]);
         m_OutputFrame[3] = frame[3];
         m_OutputFrame[4] = frame[4];
         m_OutputFrame[5] = frame[5];
 
         return 3;
 	}
-
-	// Sends exception to master
-	// Uses last received frame as function code
-	//
-	void throwException(uint8_t exceptionCode);
 
 	//Send response frame to master
 	//This function appends a CRC16 to the end of the frame
