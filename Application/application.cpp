@@ -128,8 +128,8 @@ uint32_t WBMR::validateCoil(uint16_t reg)
 {
 	switch (reg)
 	{
-	case 0:
-	case 1:
+	case REG_RELAY_0:
+	case REG_RELAY_1:
         break;
 	default:
 		return Result::IllegalDataAddress;
@@ -142,10 +142,10 @@ uint32_t WBMR::onWriteCoil(uint16_t reg, bool value)
 {
 	switch (reg)
 	{
-	case 0:
+	case REG_RELAY_0:
         channel0.setRelayState(value);
         break;
-	case 1:
+	case REG_RELAY_1:
         channel1.setRelayState(value);
         break;
 	}
@@ -157,9 +157,9 @@ uint32_t WBMR::onReadCoil(uint16_t reg)
 {
 	switch (reg)
 	{
-	case 0:
+	case REG_RELAY_0:
         return channel0.relay_state;
-	case 1:
+	case REG_RELAY_1:
 		return channel1.relay_state;;
 	default:
 		return Result::IllegalDataAddress;
@@ -170,9 +170,9 @@ uint32_t WBMR::onReadDiscrete(uint16_t reg)
 {
 	switch (reg)
 	{
-	case 0:
+	case REG_BUTTON_0:
         return channel0.input_state;
-	case 1:
+	case REG_BUTTON_1:
 		return channel1.input_state;
 	default:
 		return Result::IllegalDataAddress;
@@ -185,16 +185,16 @@ uint32_t WBMR::onReadDiscrete(uint16_t reg)
 
 #define BE32_REG(reg, addr, value) \
 	if (reg == addr)               \
-        return value >> 16;        \
+        return (value) >> 16;      \
     if (reg == addr + 1)           \
-    	return value & 0x00FF
+    	return (value) & 0x00FF
 
 uint32_t WBMR::onReadInput(uint16_t reg)
 {
-	BE32_REG(reg, 104, uptime.seconds);
-	STRING_REG(reg, 200, model);
-	STRING_REG(reg, 250, version);
-	STRING_REG(reg, 290, signature);
+	BE32_REG(reg,   REG_UPTIME,    uptime.seconds);
+	STRING_REG(reg, REG_MODEL,     model);
+	STRING_REG(reg, REG_VERSION,   version);
+	STRING_REG(reg, REG_SIGNATURE, signature);
 
 	return Result::IllegalDataAddress;
 }
@@ -322,13 +322,6 @@ uint32_t WBMR::onWriteHolding(uint16_t reg, uint16_t value)
 	return Result::OK;
 }
 
-static const uint32_t stop_bits_table[] =
-{
-	0,
-	UART_STOPBITS_1,
-	UART_STOPBITS_2
-};
-
 static const uint32_t parity_table[] =
 {
 	UART_PARITY_NONE,
@@ -341,7 +334,7 @@ uint32_t WBMR::receiveFrame()
 	if (cfg_changed)
 	{
 		m_uart->Init.BaudRate = baud_rate * 100;
-		m_uart->Init.StopBits = stop_bits_table[stop_bits];
+		m_uart->Init.StopBits = (stop_bits == 2) ? UART_STOPBITS_2 : UART_STOPBITS_1;
 		m_uart->Init.Parity   = parity_table[parity];
 
 		UART_SetConfig(m_uart);
