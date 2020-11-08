@@ -95,7 +95,6 @@ uint32_t ModbusRTUSlave::receiveFrame()
 	uint32_t timeout = 500;
 	uint16_t length;
 	HAL_StatusTypeDef result;
-	bool received = false;
 
 	do
 	{
@@ -136,11 +135,10 @@ uint32_t ModbusRTUSlave::receiveFrame()
 		}
 
 		// Zero is broadcast address according to spec
-		if (m_InputFrame[0] == 0 || m_InputFrame[0] == m_SlaveID)
-		{
-            received = (crc16(m_InputFrame, length - 2) == read_unaligned_le16(&m_InputFrame[length - 2]));
-		}
-	} while (!received);
+		if (m_InputFrame[0] && m_InputFrame[0] != m_SlaveID)
+			continue;
+
+	} while (crc16(m_InputFrame, length - 2) != read_unaligned_le16(&m_InputFrame[length - 2]));
 
 	onFrameReceived();
 
