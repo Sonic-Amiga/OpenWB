@@ -301,51 +301,46 @@ uint32_t WBMR::validateHolding(uint16_t reg, uint16_t value)
 
 bool WBMR::applyHolding(uint16_t reg, uint16_t value)
 {
-	bool changed = false;
-
 	switch (reg)
 	{
 	case REG_DEBOUNCE_0:
-		changed = (value != channel0.debounce);
-	    channel0.debounce = value;
+		if (value == channel0.debounce)
+			return false;
+		channel0.debounce = value;
 		break;
 	case REG_DEBOUNCE_1:
-		changed = (value != channel1.debounce);
-	    channel1.debounce = value;
+		if (value == channel1.debounce)
+			return false;
+		channel1.debounce = value;
 		break;
 	case REG_BAUD_RATE:
-		if (value != baud_rate)
-		{
-		    baud_rate   = value;
-		    cfg_changed = true;
-		    changed = true;
-		}
+		if (value == baud_rate)
+			return false;
+		baud_rate   = value;
+	    cfg_changed = true;
 		break;
 	case REG_PARITY:
-		if (value != parity)
-		{
-		    parity      = value;
-		    cfg_changed = true;
-		    changed = true;
-		}
+		if (value == parity)
+			return false;
+	    parity      = value;
+	    cfg_changed = true;
 		break;
 	case REG_STOP_BITS:
-		if (stop_bits != value)
-		{
-		    stop_bits   = value;
-		    cfg_changed = true;
-		    changed = true;
-		}
+		if (stop_bits == value)
+			return false;
+	    stop_bits   = value;
+	    cfg_changed = true;
 		break;
 	case REG_SLAVE_ADDR:
-		changed = (m_SlaveID != value);
+		if (m_SlaveID != value)
+			return false;
 		// It's OK to change m_SlaveID during the transaction.
 		// The response will be correctly sent from an old address
 		m_SlaveID = value;
 		break;
 	}
 
-	return changed;
+	return true;
 }
 
 uint32_t WBMR::onWriteHolding(uint16_t reg, uint16_t value)
@@ -410,9 +405,8 @@ void setup(void)
 	{
 		uint16_t reg = VirtAddVarTab[i];
 		uint16_t data;
-		uint16_t result = EE_ReadVariable(REG_DEBOUNCE_0, &data);
 
-		if (result == 0) {
+		if (EE_ReadVariable(reg, &data) == 0) {
             if (modbus.validateHolding(reg, data) == ModbusRTUSlave::Result::OK)
             	modbus.applyHolding(reg, data);
 		}
