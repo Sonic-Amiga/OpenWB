@@ -187,7 +187,7 @@ uint32_t WBMR::onReadDiscrete(uint16_t reg)
 	if (reg == addr)               \
         return (value) >> 16;      \
     if (reg == addr + 1)           \
-    	return (value) & 0x00FF
+    	return (value) & 0x00FFFF
 
 uint32_t WBMR::onReadInput(uint16_t reg)
 {
