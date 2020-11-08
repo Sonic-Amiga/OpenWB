@@ -164,8 +164,8 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 {
 	uint8_t function = frame[1];
 	uint16_t targetRegister, targetRegisterLength, data;
-	uint8_t responseLength;
-	uint32_t result;
+	uint8_t responseLength = 0;
+	uint32_t result = 0;
 
 	switch (function)
 	{
