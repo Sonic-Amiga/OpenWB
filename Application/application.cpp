@@ -2,6 +2,11 @@
 #include "stm32f0xx_hal.h"
 #include "hal_extras.h"
 #include "ModbusRTU.h"
+#include "registers.h"
+
+extern "C" { // This header is pure C
+#include "eeprom.h"
+}
 
 static const char model[7]      = "WBMR2";
 static const char version[16]   = "0.1";
@@ -91,7 +96,7 @@ public:
 
   bool     relay_state = false;
   bool     input_state = false;
-  uint16_t debounce    = 100;
+  uint16_t debounce    = 50;
 
 private:
   const uint16_t relay_pin;
@@ -129,6 +134,9 @@ public:
 
 	uint32_t receiveFrame();
 
+	uint32_t validateHolding(uint16_t reg, uint16_t value) override;
+	bool applyHolding(uint16_t reg, uint16_t value);
+
 protected:
 	void onFrameReceived() override
 	{
@@ -141,7 +149,6 @@ protected:
 	uint32_t onReadDiscrete(uint16_t reg) override;
 	uint32_t onReadInput(uint16_t reg) override;
 	uint32_t onReadHolding(uint16_t reg) override;
-	uint32_t validateHolding(uint16_t reg, uint16_t value) override;
 	uint32_t onWriteHolding(uint16_t reg, uint16_t value) override;
 
 private:
@@ -231,17 +238,17 @@ uint32_t WBMR::onReadHolding(uint16_t reg)
 {
 	switch (reg)
 	{
-	case 20:
+	case REG_DEBOUNCE_0:
 		return channel0.debounce;
-	case 21:
+	case REG_DEBOUNCE_1:
 		return channel1.debounce;
-	case 110:
+	case REG_BAUD_RATE:
 		return baud_rate;
-	case 111:
+	case REG_PARITY:
 		return parity;
-	case 112:
+	case REG_STOP_BITS:
 		return stop_bits;
-	case 128:
+	case REG_SLAVE_ADDR:
 		return m_SlaveID;
 	default:
 		return Result::IllegalDataAddress;
@@ -252,12 +259,12 @@ uint32_t WBMR::validateHolding(uint16_t reg, uint16_t value)
 {
 	switch (reg)
 	{
-	case 20:
-	case 21:
+	case REG_DEBOUNCE_0:
+	case REG_DEBOUNCE_1:
 		if (value > 100)
 			return Result::IllegalDataValue;
 		break;
-	case 110:
+	case REG_BAUD_RATE:
 		switch (value)
 		{
 		case 12:
@@ -273,15 +280,15 @@ uint32_t WBMR::validateHolding(uint16_t reg, uint16_t value)
 			return Result::IllegalDataValue;
 		}
 		break;
-	case 111:
+	case REG_PARITY:
 		if (value > 2)
 			return Result::IllegalDataValue;
 	    break;
-	case 112:
+	case REG_STOP_BITS:
 		if (value < 1 || value > 2)
 			return Result::IllegalDataValue;
 		break;
-	case 128:
+	case REG_SLAVE_ADDR:
 		if (value < 1 || value > 247)
 			return Result::IllegalDataValue;
 		break;
@@ -292,33 +299,64 @@ uint32_t WBMR::validateHolding(uint16_t reg, uint16_t value)
 	return Result::OK;
 }
 
-uint32_t WBMR::onWriteHolding(uint16_t reg, uint16_t value)
+bool WBMR::applyHolding(uint16_t reg, uint16_t value)
 {
+	bool changed = false;
+
 	switch (reg)
 	{
-	case 20:
-		channel0.debounce = value;
+	case REG_DEBOUNCE_0:
+		changed = (value != channel0.debounce);
+	    channel0.debounce = value;
 		break;
-	case 21:
-		channel1.debounce = value;
+	case REG_DEBOUNCE_1:
+		changed = (value != channel1.debounce);
+	    channel1.debounce = value;
 		break;
-	case 110:
-		baud_rate   = value;
-		cfg_changed = true;
+	case REG_BAUD_RATE:
+		if (value != baud_rate)
+		{
+		    baud_rate   = value;
+		    cfg_changed = true;
+		    changed = true;
+		}
 		break;
-	case 111:
-		parity      = value;
-		cfg_changed = true;
+	case REG_PARITY:
+		if (value != parity)
+		{
+		    parity      = value;
+		    cfg_changed = true;
+		    changed = true;
+		}
 		break;
-	case 112:
-		stop_bits   = value;
-		cfg_changed = true;
+	case REG_STOP_BITS:
+		if (stop_bits != value)
+		{
+		    stop_bits   = value;
+		    cfg_changed = true;
+		    changed = true;
+		}
 		break;
-	case 128:
+	case REG_SLAVE_ADDR:
+		changed = (m_SlaveID != value);
 		// It's OK to change m_SlaveID during the transaction.
 		// The response will be correctly sent from an old address
 		m_SlaveID = value;
 		break;
+	}
+
+	return changed;
+}
+
+uint32_t WBMR::onWriteHolding(uint16_t reg, uint16_t value)
+{
+	bool changed = applyHolding(reg, value);
+
+	if (changed) {
+	    /* Temporarily disabled for debugging
+		if (EE_WriteVariable(reg, value) != FLASH_COMPLETE)
+	        return Result::DeviceFailure;
+        */
 	}
 
 	return Result::OK;
@@ -340,8 +378,6 @@ static const uint32_t parity_table[] =
 
 uint32_t WBMR::receiveFrame()
 {
-	uint32_t result = ModbusRTUSlave::receiveFrame();
-
 	if (cfg_changed)
 	{
 		m_uart->Init.BaudRate = baud_rate * 100;
@@ -352,10 +388,36 @@ uint32_t WBMR::receiveFrame()
 		cfg_changed = false;
 	}
 
-	return result;
+	return ModbusRTUSlave::receiveFrame();
 }
 
 static WBMR modbus(&huart1);
+
+// We are also using ModBus holding register numbers as virtual addresses for EEPROM emulation
+// This allows us to save up some space by completely reusing the validation code
+const uint16_t VirtAddVarTab[NB_OF_VAR] = {
+	REG_DEBOUNCE_0,
+	REG_DEBOUNCE_1,
+	REG_BAUD_RATE,
+	REG_PARITY,
+	REG_STOP_BITS,
+	REG_SLAVE_ADDR
+};
+
+void setup(void)
+{
+	for (uint16_t i = 0; i < NB_OF_VAR; i++)
+	{
+		uint16_t reg = VirtAddVarTab[i];
+		uint16_t data;
+		uint16_t result = EE_ReadVariable(REG_DEBOUNCE_0, &data);
+
+		if (result == 0) {
+            if (modbus.validateHolding(reg, data) == ModbusRTUSlave::Result::OK)
+            	modbus.applyHolding(reg, data);
+		}
+	}
+}
 
 void loop(void)
 {

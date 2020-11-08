@@ -17,6 +17,7 @@ private:
 		Illegal_Function = 1,
 		Illegal_DataAddress = 2,
 		Illegal_DataValue = 3,
+		Device_Failure = 4,
 	};
 
 public:
@@ -27,7 +28,8 @@ public:
 		ErrorFlag = 0x80000000,
 		IllegalFunction = ErrorFlag + ExceptionCode::Illegal_Function,
 		IllegalDataAddress = ErrorFlag + ExceptionCode::Illegal_DataAddress,
-		IllegalDataValue = ErrorFlag + ExceptionCode::Illegal_DataValue
+		IllegalDataValue = ErrorFlag + ExceptionCode::Illegal_DataValue,
+		DeviceFailure = ErrorFlag + ExceptionCode::Device_Failure
 	};
 
 	ModbusRTUSlave(UART_HandleTypeDef *uart, uint8_t slaveId)
