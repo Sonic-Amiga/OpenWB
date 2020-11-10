@@ -313,10 +313,10 @@ uint32_t WBMR::onWriteHolding(uint16_t reg, uint16_t value)
 	bool changed = applyHolding(reg, value);
 
 	if (changed) {
-	    /* Temporarily disabled for debugging
+#ifdef ENABLE_EEPROM
 		if (EE_WriteVariable(reg, value) != FLASH_COMPLETE)
 	        return Result::DeviceFailure;
-        */
+#endif
 	}
 
 	return Result::OK;
@@ -359,6 +359,7 @@ const uint16_t VirtAddVarTab[NB_OF_VAR] = {
 
 void setup(void)
 {
+#ifdef ENABLE_EEPROM
 	for (uint16_t i = 0; i < NB_OF_VAR; i++)
 	{
 		uint16_t reg = VirtAddVarTab[i];
@@ -369,6 +370,7 @@ void setup(void)
             	modbus.applyHolding(reg, data);
 		}
 	}
+#endif
 }
 
 void loop(void)

@@ -21,7 +21,7 @@ extern "C" {
 
 void GPIO_Set_Trigger(uint16_t pin, uint16_t mode);
 
-HAL_StatusTypeDef ModBus_Receive(UART_HandleTypeDef *huart, uint8_t *pData, uint16_t Size, uint32_t initial_timeout, uint32_t Timeout);
+HAL_StatusTypeDef ModBus_Receive(UART_HandleTypeDef *huart, uint8_t *pData, uint16_t Size, uint8_t initial_timeout, uint32_t Timeout);
 
 #ifdef __cplusplus
 }

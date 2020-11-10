@@ -91,13 +91,10 @@ uint16_t ModbusRTUSlave::crc16(const uint8_t *nData, uint16_t wLength)
 
 uint32_t ModbusRTUSlave::receiveFrame()
 {
-	// FIXME: The spec mandates this to be 1.5 chars or 750us when baudrate >= 19200
-	// However our timers we currently use don't have enough resolution, so we have to
-	// enlarge our values a bit.
-	uint32_t timeout = 2;
+	uint32_t timeout = 750;
 
-	if (m_uart->Init.BaudRate < 9600)
-		timeout = div_roundup(16500, m_uart->Init.BaudRate);
+	if (m_uart->Init.BaudRate < 19200)
+		timeout = 16500000 / m_uart->Init.BaudRate;
 
 	while (true)
 	{
@@ -108,7 +105,7 @@ uint32_t ModbusRTUSlave::receiveFrame()
 		// 2 bytes - quantity of registers to read
 		// 2 bytes - CRC
 		uint16_t length = 8;
-		HAL_StatusTypeDef result = ModBus_Receive(m_uart, m_InputFrame, length, HAL_MAX_DELAY, timeout);
+		HAL_StatusTypeDef result = ModBus_Receive(m_uart, m_InputFrame, length, false, timeout);
 
 		if (result != HAL_OK)
 			continue;
@@ -125,7 +122,7 @@ uint32_t ModbusRTUSlave::receiveFrame()
 			// 1 byte - subsequent data length in bytes
 			uint16_t extra_len = m_InputFrame[6] + 1;
 
-			result = ModBus_Receive(m_uart, &m_InputFrame[8], extra_len, timeout, timeout);
+			result = ModBus_Receive(m_uart, &m_InputFrame[8], extra_len, true, timeout);
 
 			if (result != HAL_OK)
 				continue; // Restart from the beginning if timeout
