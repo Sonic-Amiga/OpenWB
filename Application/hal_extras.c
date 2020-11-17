@@ -19,6 +19,28 @@ void GPIO_Set_Trigger(uint16_t pin, uint16_t mode)
     EXTI->FTSR = temp;
 }
 
+static void Micro_Timer_Stop(void)
+{
+	LL_TIM_DisableCounter(TIM3);
+	LL_TIM_ClearFlag_UPDATE(TIM3); /* Clear any possible stale UIF. */
+}
+
+static void Micro_Timer_Start(uint32_t timeout)
+{
+    LL_TIM_SetCounter(TIM3, timeout);
+    LL_TIM_EnableCounter(TIM3);
+}
+
+static uint8_t Micro_Timer_Expired(void)
+{
+	uint8_t timeout = LL_TIM_IsActiveFlag_UPDATE(TIM3);
+
+	if (timeout)
+	    LL_TIM_ClearFlag_UPDATE(TIM3);
+
+	return timeout;
+}
+
 static void UART_Stop(UART_HandleTypeDef *huart)
 {
     /* Disable TXE, RXNE, PE and ERR (Frame error, noise error, overrun error) interrupts for the interrupt process */
@@ -38,9 +60,8 @@ static HAL_StatusTypeDef WaitOnFlagUntilTimeout(UART_HandleTypeDef *huart, uint3
     while ((__HAL_UART_GET_FLAG(huart, Flag) ? SET : RESET) == Status)
     {
         /* Check for the Timeout */
-        if (timeout && LL_TIM_IsActiveFlag_UPDATE(TIM3))
+        if (timeout && Micro_Timer_Expired())
         {
-        	LL_TIM_ClearFlag_UPDATE(TIM3);
             UART_Stop(huart);
             return HAL_TIMEOUT;
         }
@@ -65,10 +86,8 @@ static HAL_StatusTypeDef WaitOnFlagUntilTimeout(UART_HandleTypeDef *huart, uint3
 HAL_StatusTypeDef ModBus_Receive(UART_HandleTypeDef *huart, uint8_t *pData, uint16_t Size, uint8_t initial_timeout, uint32_t Timeout)
 {
 	if (!initial_timeout) {
-		/* We are starting to receive a new frame. Make sure the bomb isn't ticking
-		 * and clear any possible stale UIF. */
-		LL_TIM_DisableCounter(TIM3);
-		LL_TIM_ClearFlag_UPDATE(TIM3);
+		/* We are starting to receive a new frame. Make sure the bomb isn't ticking. */
+		Micro_Timer_Stop();
 	}
 
 	__HAL_LOCK(huart);
@@ -91,8 +110,7 @@ HAL_StatusTypeDef ModBus_Receive(UART_HandleTypeDef *huart, uint8_t *pData, uint
         Size--;
 
         initial_timeout = 1;
-        LL_TIM_SetCounter(TIM3, Timeout);
-        LL_TIM_EnableCounter(TIM3);
+        Micro_Timer_Start(Timeout);
     }
 
     /* At end of Rx process, restore huart->RxState to Ready */
