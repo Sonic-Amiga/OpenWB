@@ -333,9 +333,11 @@ void WBMR::update()
 {
 	if (cfg_changed)
 	{
-		m_uart->Init.BaudRate = baud_rate * 100;
-		m_uart->Init.StopBits = (stop_bits == 2) ? UART_STOPBITS_2 : UART_STOPBITS_1;
-		m_uart->Init.Parity   = parity_table[parity];
+		m_uart->Init.BaudRate   = baud_rate * 100;
+		// Word length includes parity bit
+		m_uart->Init.WordLength = (parity == 0) ? UART_WORDLENGTH_8B : UART_WORDLENGTH_9B;
+		m_uart->Init.StopBits   = (stop_bits == 2) ? UART_STOPBITS_2 : UART_STOPBITS_1;
+		m_uart->Init.Parity     = parity_table[parity];
 
 		UART_SetConfig(m_uart);
 		cfg_changed = false;
