@@ -4,6 +4,7 @@
 
 #include <ModbusRTU.h>
 #include "hal_extras.h"
+#include "MicroTimer.h"
 
 #define BIT_SET(variable, bit, value) \
     if (value)                        \
