@@ -89,6 +89,33 @@ uint16_t ModbusRTUSlave::crc16(const uint8_t *nData, uint16_t wLength)
 	return wCRCWord;
 }
 
+bool ModbusRTUSlave::receive(uint8_t *pData, uint16_t Size, bool start, uint32_t Timeout)
+{
+	if (start) {
+		/* We are starting to receive a new frame. Make sure the bomb isn't ticking. */
+		Micro_Timer_Stop();
+	}
+
+    /* as long as data have to be received */
+    while (Size)
+    {
+
+    	while (!UART_HasCharacter(m_uart))
+    	{
+            if ((!start) && Micro_Timer_Expired())
+                return false;
+    	}
+
+    	*pData++ = UART_GetCharacter(m_uart);
+        Size--;
+
+        start = false;
+        Micro_Timer_Start(Timeout);
+    }
+
+    return true;
+}
+
 uint32_t ModbusRTUSlave::receiveFrame()
 {
 	uint32_t timeout = 750;
@@ -105,9 +132,8 @@ uint32_t ModbusRTUSlave::receiveFrame()
 		// 2 bytes - quantity of registers to read
 		// 2 bytes - CRC
 		uint16_t length = 8;
-		HAL_StatusTypeDef result = ModBus_Receive(m_uart, m_InputFrame, length, false, timeout);
 
-		if (result != HAL_OK)
+		if (!receive(m_InputFrame, length, true, timeout))
 			continue;
 
 		//Function length check
@@ -122,9 +148,7 @@ uint32_t ModbusRTUSlave::receiveFrame()
 			// 1 byte - subsequent data length in bytes
 			uint16_t extra_len = m_InputFrame[6] + 1;
 
-			result = ModBus_Receive(m_uart, &m_InputFrame[8], extra_len, true, timeout);
-
-			if (result != HAL_OK)
+			if (!receive(&m_InputFrame[8], extra_len, false, timeout))
 				continue; // Restart from the beginning if timeout
 
 			length += extra_len;

@@ -338,6 +338,8 @@ uint32_t WBMR::receiveFrame()
 		m_uart->Init.Parity   = parity_table[parity];
 
 		UART_SetConfig(m_uart);
+		// Compute UART mask to apply to RDR register
+		UART_MASK_COMPUTATION(m_uart);
 		cfg_changed = false;
 	}
 
@@ -359,6 +361,7 @@ const uint16_t VirtAddVarTab[NB_OF_VAR] = {
 
 void setup(void)
 {
+	UART_MASK_COMPUTATION(&huart1);
 #ifdef ENABLE_EEPROM
 	for (uint16_t i = 0; i < NB_OF_VAR; i++)
 	{

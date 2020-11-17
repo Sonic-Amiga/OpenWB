@@ -123,6 +123,8 @@ private:
 	void send(uint8_t* frame, uint16_t length) {
 	    HAL_UART_Transmit(m_uart, frame, length, 0xFFFF);
 	}
+
+	bool receive(uint8_t *pData, uint16_t Size, bool initial_timeout, uint32_t timeout);
 };
 
 #endif
