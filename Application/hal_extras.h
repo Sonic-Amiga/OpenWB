@@ -21,14 +21,9 @@ extern "C" {
 
 void GPIO_Set_Trigger(uint16_t pin, uint16_t mode);
 
-static inline uint8_t UART_HasCharacter(UART_HandleTypeDef* uart)
+static inline void UART_Flush(UART_HandleTypeDef* huart)
 {
-	return __HAL_UART_GET_FLAG(uart, UART_FLAG_RXNE);
-}
-
-static inline uint16_t UART_GetCharacter(UART_HandleTypeDef* huart)
-{
-	return huart->Instance->RDR & huart->Mask;
+    __HAL_UART_SEND_REQ(huart, UART_RXDATA_FLUSH_REQUEST);
 }
 
 #ifdef __cplusplus

@@ -7,7 +7,7 @@
 
 #include "stm32f0xx_hal.h"
 
-#define MODBUS_MAX_FRAME_LENGTH 255
+#define MODBUS_MAX_FRAME_LENGTH 256
 
 class ModbusRTUSlave
 {
@@ -33,11 +33,12 @@ public:
 	};
 
 	ModbusRTUSlave(UART_HandleTypeDef *uart, uint8_t slaveId)
-        : m_uart(uart), m_SlaveID(slaveId)
+        : m_uart(uart), m_SlaveID(slaveId), m_InputFrameLength(0)
 	{
 	}
 
-	uint32_t receiveFrame();
+	void update();
+	void receiveByte(uint8_t data);
 
 protected:
 	// Signal that a frame has been received. You can use this in order
@@ -93,8 +94,9 @@ private:
 		Exception = 128,
 	};
 
-	uint8_t             m_InputFrame[MODBUS_MAX_FRAME_LENGTH];
-	uint8_t             m_OutputFrame[MODBUS_MAX_FRAME_LENGTH];
+	uint8_t m_InputFrame[MODBUS_MAX_FRAME_LENGTH];
+	uint8_t m_OutputFrame[MODBUS_MAX_FRAME_LENGTH];
+	uint8_t m_InputFrameLength;
 
 	static uint16_t crc16(const uint8_t *nData, uint16_t wLength);
 
@@ -121,7 +123,7 @@ private:
 	uint32_t parseFrame(uint8_t *frame, uint16_t frameLength);
 
 	void send(uint8_t* frame, uint16_t length) {
-	    HAL_UART_Transmit(m_uart, frame, length, 0xFFFF);
+	    HAL_UART_Transmit(m_uart, frame, length, HAL_MAX_DELAY);
 	}
 
 	bool receive(uint8_t *pData, uint16_t Size, bool initial_timeout, uint32_t timeout);

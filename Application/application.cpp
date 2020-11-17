@@ -97,7 +97,7 @@ class WBMR : public ModbusRTUSlave
 public:
 	WBMR(UART_HandleTypeDef *uart) : ModbusRTUSlave(uart, 145) {}
 
-	uint32_t receiveFrame();
+	void update();
 
 	uint32_t validateHolding(uint16_t reg, uint16_t value) override;
 	bool applyHolding(uint16_t reg, uint16_t value);
@@ -329,7 +329,7 @@ static const uint32_t parity_table[] =
 	UART_PARITY_EVEN
 };
 
-uint32_t WBMR::receiveFrame()
+void WBMR::update()
 {
 	if (cfg_changed)
 	{
@@ -338,12 +338,10 @@ uint32_t WBMR::receiveFrame()
 		m_uart->Init.Parity   = parity_table[parity];
 
 		UART_SetConfig(m_uart);
-		// Compute UART mask to apply to RDR register
-		UART_MASK_COMPUTATION(m_uart);
 		cfg_changed = false;
 	}
 
-	return ModbusRTUSlave::receiveFrame();
+	ModbusRTUSlave::update();
 }
 
 static WBMR modbus(&huart1);
@@ -361,7 +359,6 @@ const uint16_t VirtAddVarTab[NB_OF_VAR] = {
 
 void setup(void)
 {
-	UART_MASK_COMPUTATION(&huart1);
 #ifdef ENABLE_EEPROM
 	for (uint16_t i = 0; i < NB_OF_VAR; i++)
 	{
@@ -378,7 +375,11 @@ void setup(void)
 
 void loop(void)
 {
-	modbus.receiveFrame();
+	uint8_t data;
+
+	HAL_UART_Receive(&huart1, &data, 1, HAL_MAX_DELAY);
+	modbus.receiveByte(data);
+	modbus.update();
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t pin)

@@ -90,53 +90,32 @@ uint16_t ModbusRTUSlave::crc16(const uint8_t *nData, uint16_t wLength)
 	return wCRCWord;
 }
 
-bool ModbusRTUSlave::receive(uint8_t *pData, uint16_t Size, bool start, uint32_t Timeout)
+void ModbusRTUSlave::receiveByte(uint8_t data)
 {
-	if (start) {
-		/* We are starting to receive a new frame. Make sure the bomb isn't ticking. */
-		Micro_Timer_Stop();
+	uint32_t timeout = (m_uart->Init.BaudRate < 19200) ? 16500000 / m_uart->Init.BaudRate : 750;
+
+	if (Micro_Timer_Expired()) {
+		m_InputFrameLength = 0;
 	}
 
-    /* as long as data have to be received */
-    while (Size)
-    {
+	// m_InputFrameLength is uint8_t, so this is safe
+    m_InputFrame[m_InputFrameLength++] = data;
 
-    	while (!UART_HasCharacter(m_uart))
-    	{
-            if ((!start) && Micro_Timer_Expired())
-                return false;
-    	}
-
-    	*pData++ = UART_GetCharacter(m_uart);
-        Size--;
-
-        start = false;
-        Micro_Timer_Start(Timeout);
-    }
-
-    return true;
+	Micro_Timer_Start(timeout);
 }
 
-uint32_t ModbusRTUSlave::receiveFrame()
+void ModbusRTUSlave::update()
 {
-	uint32_t timeout = 750;
+	// Minimum modbus frame size:
+	// 1 byte  - slave ID
+	// 1 byte  - function code
+	// 2 bytes - starting address of the register
+	// 2 bytes - quantity of registers to read
+	// 2 bytes - CRC
+	uint16_t length = 8;
 
-	if (m_uart->Init.BaudRate < 19200)
-		timeout = 16500000 / m_uart->Init.BaudRate;
-
-	while (true)
+	if (m_InputFrameLength >= 8)
 	{
-		// Minimum modbus frame size:
-		// 1 byte  - slave ID
-		// 1 byte  - function code
-		// 2 bytes - starting address of the register
-		// 2 bytes - quantity of registers to read
-		// 2 bytes - CRC
-		uint16_t length = 8;
-
-		if (!receive(m_InputFrame, length, true, timeout))
-			continue;
-
 		//Function length check
 		if (m_InputFrame[1] >= FunctionCode::ReadCoils &&
 			m_InputFrame[1] <= FunctionCode::WriteSingleRegister)
@@ -147,31 +126,30 @@ uint32_t ModbusRTUSlave::receiveFrame()
 				m_InputFrame[1] == FunctionCode::WriteMultipleRegisters)
 		{
 			// 1 byte - subsequent data length in bytes
-			uint16_t extra_len = m_InputFrame[6] + 1;
-
-			if (!receive(&m_InputFrame[8], extra_len, false, timeout))
-				continue; // Restart from the beginning if timeout
-
-			length += extra_len;
+			length = 9 + m_InputFrame[6];
 		}
 		else
 		{
-			continue; // Some rubbish received, just drop
+			// Some rubbish received, just drop
+			m_InputFrameLength = 0;
+			return;
 		}
+	}
 
+	if (m_InputFrameLength >= length) {
 		// Zero is broadcast address according to spec
 		if (m_InputFrame[0] == 0 || m_InputFrame[0] == m_SlaveID)
 		{
-		    if (crc16(m_InputFrame, length - 2) == read_unaligned_le16(&m_InputFrame[length - 2]))
-		    {
-			    onFrameReceived();
-		        uint32_t result = parseFrame(m_InputFrame, length);
-
-		        // Clear any leftover crap in the receive buffer
-		        __HAL_UART_SEND_REQ(m_uart, UART_RXDATA_FLUSH_REQUEST);
-		        return result;
-		    }
+			if (crc16(m_InputFrame, length - 2) == read_unaligned_le16(&m_InputFrame[length - 2]))
+			{
+				onFrameReceived();
+				parseFrame(m_InputFrame, length);
+				// Clear any leftover crap in the receive buffer
+				UART_Flush(m_uart);
+			}
 		}
+
+		m_InputFrameLength = 0;
 	}
 }
 
