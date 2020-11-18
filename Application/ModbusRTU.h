@@ -33,7 +33,7 @@ public:
 	};
 
 	ModbusRTUSlave(UART_HandleTypeDef *uart, uint8_t slaveId)
-        : m_uart(uart), m_SlaveID(slaveId), m_InputFrameLength(0)
+        : m_uart(uart), m_SlaveID(slaveId), m_InputFrameLength(0), m_RxActive(true)
 	{
 	}
 
@@ -43,6 +43,7 @@ public:
 
 	void clearInputFrame()
 	{
+		m_RxActive = true;
 		m_InputFrameLength = 0;
 	}
 
@@ -103,6 +104,7 @@ private:
 	uint8_t  m_InputFrame[MODBUS_MAX_FRAME_LENGTH];
 	uint8_t  m_OutputFrame[MODBUS_MAX_FRAME_LENGTH];
 	uint8_t  m_InputFrameLength;
+	bool     m_RxActive;
 	uint32_t m_RxTimeout;
 
 	static uint16_t crc16(const uint8_t *nData, uint16_t wLength);

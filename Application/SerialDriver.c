@@ -23,6 +23,7 @@ void UART_Configure(USART_TypeDef* uart, uint32_t baud, uint16_t parity, uint16_
 {
 	LL_USART_InitTypeDef USART_InitStruct = {0};
 
+	UART_StopReceive(uart);
 	LL_USART_Disable(uart);
 
     USART_InitStruct.BaudRate            = baud;
@@ -46,6 +47,9 @@ void UART_Transmit(USART_TypeDef* uart, uint8_t *pData, uint16_t Size)
     	LL_USART_TransmitData8(uart, *pData++);
         Size--;
     }
+
+    /* Wait for transfer completion */
+    while(!LL_USART_IsActiveFlag_TC(uart));
 }
 
 void UART_StartReceive(USART_TypeDef *uart)
@@ -55,6 +59,15 @@ void UART_StartReceive(USART_TypeDef *uart)
 
     /* Enable the UART Parity Error interrupt and Data Register Not Empty interrupt */
     SET_BIT(uart->CR1, USART_CR1_PEIE | USART_CR1_RXNEIE);
+}
+
+void UART_StopReceive(USART_TypeDef *uart)
+{
+    /* Disable the UART Parity Error Interrupt and RXNE interrupts */
+    CLEAR_BIT(uart->CR1, (USART_CR1_RXNEIE | USART_CR1_PEIE));
+
+    /* Disable the UART Error Interrupt: (Frame error, noise error, overrun error) */
+    LL_USART_DisableIT_ERROR(uart);
 }
 
 void UART_IRQHandler(USART_TypeDef *huart)

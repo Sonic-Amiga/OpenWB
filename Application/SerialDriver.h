@@ -19,6 +19,7 @@ extern "C" {
 void UART_Configure(USART_TypeDef* uart, uint32_t baud, uint16_t data_bits, uint16_t stop_bits);
 void UART_Transmit(USART_TypeDef *huart, uint8_t *pData, uint16_t Size);
 void UART_StartReceive(USART_TypeDef *uart);
+void UART_StopReceive(USART_TypeDef *uart);
 
 static inline uint8_t UART_GetChar(USART_TypeDef *uart)
 {

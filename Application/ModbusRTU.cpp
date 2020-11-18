@@ -143,6 +143,8 @@ void ModbusRTUSlave::update()
 	}
 
 	if (m_InputFrameLength >= length) {
+		// Prevent some line noise from overwriting the buffer while we are handling it
+		m_RxActive = false;
 		// Zero is broadcast address according to spec
 		if (m_InputFrame[0] == 0 || m_InputFrame[0] == m_SlaveID)
 		{
@@ -150,8 +152,6 @@ void ModbusRTUSlave::update()
 			{
 				onFrameReceived();
 				parseFrame(m_InputFrame, length);
-				// Clear any leftover crap in the receive buffer
-				UART_Flush(m_uart);
 			}
 		}
 
