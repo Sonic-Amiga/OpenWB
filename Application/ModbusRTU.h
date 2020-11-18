@@ -37,6 +37,7 @@ public:
 	{
 	}
 
+	void begin(uint32_t baud, uint16_t parity, uint16_t stop_bits);
 	void update();
 	void receiveByte(uint8_t data);
 
@@ -94,9 +95,10 @@ private:
 		Exception = 128,
 	};
 
-	uint8_t m_InputFrame[MODBUS_MAX_FRAME_LENGTH];
-	uint8_t m_OutputFrame[MODBUS_MAX_FRAME_LENGTH];
-	uint8_t m_InputFrameLength;
+	uint8_t  m_InputFrame[MODBUS_MAX_FRAME_LENGTH];
+	uint8_t  m_OutputFrame[MODBUS_MAX_FRAME_LENGTH];
+	uint8_t  m_InputFrameLength;
+	uint16_t m_RxTimeout;
 
 	static uint16_t crc16(const uint8_t *nData, uint16_t wLength);
 

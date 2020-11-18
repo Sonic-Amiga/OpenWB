@@ -122,7 +122,7 @@ private:
 	uint16_t parity    = 0;
 	uint16_t stop_bits = 2;
 
-	bool cfg_changed = false;
+	bool cfg_changed = true;
 };
 
 uint32_t WBMR::validateCoil(uint16_t reg)
@@ -323,32 +323,18 @@ uint32_t WBMR::onWriteHolding(uint16_t reg, uint16_t value)
 	return Result::OK;
 }
 
-static const uint32_t parity_table[] =
-{
-	UART_PARITY_NONE,
-	UART_PARITY_ODD,
-	UART_PARITY_EVEN
-};
-
 void WBMR::update()
 {
 	if (cfg_changed)
 	{
-		m_uart->Init.BaudRate   = baud_rate * 100;
-		// Word length includes parity bit
-		m_uart->Init.WordLength = (parity == 0) ? UART_WORDLENGTH_8B : UART_WORDLENGTH_9B;
-		m_uart->Init.StopBits   = (stop_bits == 2) ? UART_STOPBITS_2 : UART_STOPBITS_1;
-		m_uart->Init.Parity     = parity_table[parity];
-
-		UART_SetConfig(m_uart);
-		UART_StartReceive(m_uart);
+		begin(baud_rate * 100, parity, stop_bits);
 		cfg_changed = false;
 	}
 
 	ModbusRTUSlave::update();
 }
 
-static WBMR modbus(&huart1);
+static WBMR modbus(USART1);
 
 // We are also using ModBus holding register numbers as virtual addresses for EEPROM emulation
 // This allows us to save up some space by completely reusing the validation code
@@ -375,12 +361,11 @@ void setup(void)
 		}
 	}
 #endif
-	UART_StartReceive(&huart1);
 }
 
 void loop(void)
 {
-	uint8_t data = UART_GetChar(&huart1);
+	uint8_t data = UART_GetChar(USART1);
 
 	modbus.receiveByte(data);
 	modbus.update();

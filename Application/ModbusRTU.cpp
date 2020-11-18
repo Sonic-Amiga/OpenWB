@@ -90,10 +90,15 @@ uint16_t ModbusRTUSlave::crc16(const uint8_t *nData, uint16_t wLength)
 	return wCRCWord;
 }
 
+void ModbusRTUSlave::begin(uint32_t baud, uint16_t parity, uint16_t stop_bits)
+{
+	// 1.5 chars according to specification
+	m_RxTimeout = (baud < 19200) ? 16500000 / baud : 750;
+	UART_Configure(m_uart, baud, parity, stop_bits);
+}
+
 void ModbusRTUSlave::receiveByte(uint8_t data)
 {
-	uint32_t timeout = (m_uart->Init.BaudRate < 19200) ? 16500000 / m_uart->Init.BaudRate : 750;
-
 	if (Micro_Timer_Expired()) {
 		m_InputFrameLength = 0;
 	}
@@ -101,7 +106,7 @@ void ModbusRTUSlave::receiveByte(uint8_t data)
 	// m_InputFrameLength is uint8_t, so this is safe
     m_InputFrame[m_InputFrameLength++] = data;
 
-	Micro_Timer_Start(timeout);
+	Micro_Timer_Start(m_RxTimeout);
 }
 
 void ModbusRTUSlave::update()

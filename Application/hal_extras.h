@@ -21,11 +21,6 @@ extern "C" {
 
 void GPIO_Set_Trigger(uint16_t pin, uint16_t mode);
 
-static inline void UART_Flush(UART_HandleTypeDef* huart)
-{
-    __HAL_UART_SEND_REQ(huart, UART_RXDATA_FLUSH_REQUEST);
-}
-
 #ifdef __cplusplus
 }
 #endif
