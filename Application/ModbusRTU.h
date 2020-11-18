@@ -41,6 +41,11 @@ public:
 	void update();
 	void receiveByte(uint8_t data);
 
+	void clearInputFrame()
+	{
+		m_InputFrameLength = 0;
+	}
+
 protected:
 	// Signal that a frame has been received. You can use this in order
 	// to e. g. drive activity indicator.

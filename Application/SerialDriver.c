@@ -23,6 +23,8 @@ void UART_Configure(USART_TypeDef* uart, uint32_t baud, uint16_t parity, uint16_
 {
 	LL_USART_InitTypeDef USART_InitStruct = {0};
 
+	LL_USART_Disable(uart);
+
     USART_InitStruct.BaudRate            = baud;
 	USART_InitStruct.DataWidth           = (parity == 0) ? LL_USART_DATAWIDTH_8B : LL_USART_DATAWIDTH_9B;
 	USART_InitStruct.StopBits            = (stop_bits == 2) ? LL_USART_STOPBITS_2 : LL_USART_STOPBITS_1;
@@ -31,7 +33,9 @@ void UART_Configure(USART_TypeDef* uart, uint32_t baud, uint16_t parity, uint16_
 	USART_InitStruct.HardwareFlowControl = LL_USART_HWCONTROL_NONE;
 	USART_InitStruct.OverSampling        = LL_USART_OVERSAMPLING_16;
 
-	LL_USART_Init(USART1, &USART_InitStruct);
+	LL_USART_Init(uart, &USART_InitStruct);
+	LL_USART_Enable(uart);
+	UART_StartReceive(uart);
 }
 
 void UART_Transmit(USART_TypeDef* uart, uint8_t *pData, uint16_t Size)

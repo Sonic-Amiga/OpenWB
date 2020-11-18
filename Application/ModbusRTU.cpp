@@ -100,7 +100,8 @@ void ModbusRTUSlave::begin(uint32_t baud, uint16_t parity, uint16_t stop_bits)
 void ModbusRTUSlave::receiveByte(uint8_t data)
 {
 	if (Micro_Timer_Expired()) {
-		m_InputFrameLength = 0;
+		// Timeout; a new frame is being started
+		clearInputFrame();
 	}
 
 	// m_InputFrameLength is uint8_t, so this is safe
@@ -136,7 +137,7 @@ void ModbusRTUSlave::update()
 		else
 		{
 			// Some rubbish received, just drop
-			m_InputFrameLength = 0;
+			clearInputFrame();
 			return;
 		}
 	}
@@ -154,7 +155,7 @@ void ModbusRTUSlave::update()
 			}
 		}
 
-		m_InputFrameLength = 0;
+		clearInputFrame();
 	}
 }
 

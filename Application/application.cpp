@@ -371,7 +371,7 @@ void UART_RxISR(USART_TypeDef *uart)
 
 void UART_ErrorCallback(USART_TypeDef *uart)
 {
-
+    modbus.clearInputFrame();
 }
 
 void loop(void)
