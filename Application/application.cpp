@@ -361,13 +361,22 @@ void setup(void)
 		}
 	}
 #endif
+	UART_StartReceive(USART1);
+}
+
+void UART_RxISR(USART_TypeDef *uart)
+{
+	modbus.receiveByte(UART_GetChar(uart));
+}
+
+void UART_ErrorCallback(USART_TypeDef *uart)
+{
+
 }
 
 void loop(void)
 {
-	uint8_t data = UART_GetChar(USART1);
-
-	modbus.receiveByte(data);
+	__WFI();
 	modbus.update();
 }
 

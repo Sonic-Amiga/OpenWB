@@ -1,10 +1,13 @@
 /*
  * SerialDriver.c
  *
- *  Created on: 18 нояб. 2020 г.
+ *  Created on: 18 Nov 2020
  *      Author: Sonic
  *
- * A stripped down STM32 serial port driver. Great space saver compared to HAL.
+ * A stripped down STM32 serial port driver, tailored for our needs:
+ * - Polled mode Tx
+ * - Interrupt mode Rx
+ * - 8 data bits only
  */
 
 #include "SerialDriver.h"
@@ -41,8 +44,98 @@ void UART_Transmit(USART_TypeDef* uart, uint8_t *pData, uint16_t Size)
     }
 }
 
-uint8_t UART_GetChar(USART_TypeDef *uart)
+void UART_StartReceive(USART_TypeDef *uart)
 {
-	while(!LL_USART_IsActiveFlag_RXNE(uart));
-	return LL_USART_ReceiveData8(uart);
+    /* Enable the UART Error Interrupt: (Frame error, noise error, overrun error) */
+	LL_USART_EnableIT_ERROR(uart);
+
+    /* Enable the UART Parity Error interrupt and Data Register Not Empty interrupt */
+    SET_BIT(uart->CR1, USART_CR1_PEIE | USART_CR1_RXNEIE);
+}
+
+void UART_IRQHandler(USART_TypeDef *huart)
+{
+    uint32_t isrflags   = READ_REG(huart->ISR);
+    uint32_t cr1its     = READ_REG(huart->CR1);
+    uint32_t cr3its     = READ_REG(huart->CR3);
+
+    uint8_t  data_ready = (isrflags & USART_ISR_RXNE) && (cr1its & USART_CR1_RXNEIE);
+    uint32_t errorflags = isrflags & (USART_ISR_PE | USART_ISR_FE | USART_ISR_ORE | USART_ISR_NE | USART_ISR_RTOF);
+
+    /* If no error occurs */
+    if (errorflags == 0U)
+    {
+        /* UART in mode Receiver ---------------------------------------------------*/
+        if (data_ready)
+		{
+        	UART_RxISR(huart);
+			return;
+		}
+	}
+
+    /* If some errors occur */
+    if (errorflags && ((cr3its & USART_CR3_EIE) || (cr1its & (USART_CR1_RXNEIE | USART_CR1_PEIE))))
+    {
+	    uint32_t errorcode = 0;
+
+        /* UART parity error interrupt occurred -------------------------------------*/
+        if ((isrflags & USART_ISR_PE) && (cr1its & USART_CR1_PEIE))
+        {
+            LL_USART_ClearFlag_PE(huart);
+            errorcode |= USART_ISR_PE;
+        }
+
+        /* UART frame error interrupt occurred --------------------------------------*/
+        if ((isrflags & USART_ISR_FE) && (cr3its & USART_CR3_EIE))
+        {
+    	    LL_USART_ClearFlag_FE(huart);
+    	    errorcode |= USART_ISR_FE;
+        }
+
+        /* UART noise error interrupt occurred --------------------------------------*/
+        if ((isrflags & USART_ISR_NE) && (cr3its & USART_CR3_EIE))
+        {
+    	    LL_USART_ClearFlag_NE(huart);
+    	    errorcode |= USART_ISR_NE;
+        }
+
+        /* UART Over-Run interrupt occurred -----------------------------------------*/
+        if (((isrflags & USART_ISR_ORE) && ((cr1its & USART_CR1_RXNEIE) || (cr3its & USART_CR3_EIE))))
+        {
+            LL_USART_ClearFlag_ORE(huart);
+            errorcode |= USART_ISR_ORE;
+        }
+
+        /* UART Receiver Timeout interrupt occurred ---------------------------------*/
+        if ((isrflags & USART_ISR_RTOF) && (cr1its & USART_CR1_RTOIE))
+        {
+    	    LL_USART_ClearFlag_RTO(huart);
+    	    errorcode |= USART_ISR_RTOF;
+        }
+
+        /* Call UART Error Call back function if need be ----------------------------*/
+        if (errorcode)
+        {
+            /* UART in mode Receiver --------------------------------------------------*/
+            if (data_ready)
+            {
+                UART_RxISR(huart);
+            }
+
+            UART_ErrorCallback(huart);
+            return;
+        }
+    } /* End if some error occurs */
+#if defined(USART_CR1_UESM)
+
+    /* UART wakeup from Stop mode interrupt occurred ---------------------------*/
+    if ((isrflags & USART_ISR_WUF) && (cr3its & USART_CR3_WUFIE))
+    {
+    	LL_USART_ClearFlag_WKUP(huart);
+
+        /* Call registered Wakeup Callback */
+        huart->WakeupCallback(huart);
+        return;
+    }
+#endif /* USART_CR1_UESM */
 }
