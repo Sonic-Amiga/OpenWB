@@ -10,6 +10,12 @@ extern "C" { // This header is pure C
 #include "eeprom.h"
 }
 
+#ifndef DEBUG
+// Unfortunately we can use EEPROM emulation only in release mode,
+// otherwise the code doesn't fit into flash
+#define ENABLE_EEPROM
+#endif
+
 static const char model[7]      = "WBMR2";
 static const char version[16]   = "0.1";
 static const char signature[12] = "OpenWB";
@@ -315,7 +321,21 @@ uint32_t WBMR::onWriteHolding(uint16_t reg, uint16_t value)
 
 	if (changed) {
 #ifdef ENABLE_EEPROM
-		if (EE_WriteVariable(reg, value) != FLASH_COMPLETE)
+		HAL_FLASH_Unlock();
+
+		uint16_t status = EE_WriteVariable(reg, value);
+
+		if (status == NO_VALID_PAGE) {
+			status = EE_Init();
+
+			if (status == FLASH_COMPLETE) {
+				status = EE_WriteVariable(reg, value);
+			}
+		}
+
+		HAL_FLASH_Lock();
+
+		if (status != FLASH_COMPLETE)
 	        return Result::DeviceFailure;
 #endif
 	}
@@ -338,7 +358,7 @@ static WBMR modbus(USART1);
 
 // We are also using ModBus holding register numbers as virtual addresses for EEPROM emulation
 // This allows us to save up some space by completely reusing the validation code
-const uint16_t VirtAddVarTab[NB_OF_VAR] = {
+extern const uint16_t VirtAddVarTab[NB_OF_VAR] = {
 	REG_DEBOUNCE_0,
 	REG_DEBOUNCE_1,
 	REG_BAUD_RATE,
