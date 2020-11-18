@@ -322,7 +322,7 @@ uint32_t ModbusRTUSlave::parseFrame(uint8_t *frame, uint16_t frameLength)
 
     responseLength += 3;
 	write_unaligned_le16(&m_OutputFrame[responseLength], crc16(m_OutputFrame, responseLength));
-	send(m_OutputFrame, responseLength + 2);
+	UART_Transmit(m_uart, m_OutputFrame, responseLength + 2);
 
     return result;
 }

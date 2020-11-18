@@ -2,6 +2,7 @@
 #include "stm32f0xx_hal.h"
 #include "hal_extras.h"
 #include "ModbusRTU.h"
+#include "SerialDriver.h"
 #include "CountdownTimer.h"
 #include "registers.h"
 
@@ -340,6 +341,7 @@ void WBMR::update()
 		m_uart->Init.Parity     = parity_table[parity];
 
 		UART_SetConfig(m_uart);
+		UART_StartReceive(m_uart);
 		cfg_changed = false;
 	}
 
@@ -373,13 +375,13 @@ void setup(void)
 		}
 	}
 #endif
+	UART_StartReceive(&huart1);
 }
 
 void loop(void)
 {
-	uint8_t data;
+	uint8_t data = UART_GetChar(&huart1);
 
-	HAL_UART_Receive(&huart1, &data, 1, HAL_MAX_DELAY);
 	modbus.receiveByte(data);
 	modbus.update();
 }

@@ -5,7 +5,7 @@
 #ifndef MODBUS_RTU_H
 #define MODBUS_RTU_H
 
-#include "stm32f0xx_hal.h"
+#include "SerialDriver.h"
 
 #define MODBUS_MAX_FRAME_LENGTH 256
 
@@ -121,12 +121,6 @@ private:
 	//
 	//
 	uint32_t parseFrame(uint8_t *frame, uint16_t frameLength);
-
-	void send(uint8_t* frame, uint16_t length) {
-	    HAL_UART_Transmit(m_uart, frame, length, HAL_MAX_DELAY);
-	}
-
-	bool receive(uint8_t *pData, uint16_t Size, bool initial_timeout, uint32_t timeout);
 };
 
 #endif
