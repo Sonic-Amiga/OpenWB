@@ -17,7 +17,7 @@ extern "C" { // This header is pure C
 #endif
 
 static const char model[7]      = "WBMR2";
-static const char version[16]   = "0.1";
+static const char version[16]   = "1.0";
 static const char signature[12] = "OpenWB";
 
 class UptimeCounter : public CountdownTimer
@@ -102,7 +102,7 @@ static LEDTimer led;
 class WBMR : public ModbusRTUSlave
 {
 public:
-	WBMR(UART_HandleTypeDef *uart) : ModbusRTUSlave(uart, 145) {}
+	WBMR(UART_HandleTypeDef *uart) : ModbusRTUSlave(uart, 1) {}
 
 	void update();
 
