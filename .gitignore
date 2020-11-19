@@ -1,4 +1,7 @@
 .settings
+build
 Debug
 Release
 *.launch
+.project
+.cproject
