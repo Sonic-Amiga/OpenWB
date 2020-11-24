@@ -20,9 +20,13 @@ TARGET = WB-MR2
 # building variables
 ######################################
 # debug build?
-DEBUG = 1
-# optimization
-OPT = -Og
+ifeq ($(BUILD_TYPE), Debug)
+    DEBUG = 1
+    OPT = -Og
+else
+    DEBUG = 0
+    OPT = -Os
+endif
 
 
 #######################################
@@ -145,6 +149,7 @@ CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2
+C_DEFS += -DDEBUG
 endif
 
 
