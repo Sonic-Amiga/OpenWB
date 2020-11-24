@@ -20,6 +20,8 @@ static const char model[7]      = "WBMR2";
 static const char version[16]   = "1.0";
 static const char signature[12] = "OpenWB";
 
+#include "git_revision.h"
+
 class UptimeCounter : public CountdownTimer
 {
 public:
@@ -68,6 +70,7 @@ public:
 
   bool     relay_state = false;
   bool     input_state = false;
+  uint16_t counter     = 0;
   uint16_t debounce    = 50;
 
 private:
@@ -85,6 +88,7 @@ void ChannelHandler::onInterrupt()
         if (!isTimedOut())
             return;
 
+        counter++;
         setRelayState(!relay_state);
     }
     else
@@ -128,7 +132,8 @@ private:
 	uint16_t parity    = 0;
 	uint16_t stop_bits = 2;
 
-	bool cfg_changed = true;
+	bool cfg_changed    = true;
+	bool reboot_pending = false;
 };
 
 uint32_t WBMR::validateCoil(uint16_t reg)
@@ -190,6 +195,10 @@ uint32_t WBMR::onReadDiscrete(uint16_t reg)
     if (reg >= addr && reg <= addr + sizeof(str)) \
         return str[reg - addr]
 
+#define PACKED_STRING_REG(reg, addr, str)                             \
+	if (reg >= addr && reg <= addr + sizeof(str) / 2)                 \
+	    return ((uint16_t)str[reg - addr] << 8) | str[reg - addr + 1]
+
 #define BE32_REG(reg, addr, value) \
 	if (reg == addr)               \
         return (value) >> 16;      \
@@ -200,8 +209,14 @@ uint32_t WBMR::onReadInput(uint16_t reg)
 {
 	BE32_REG(reg,   REG_UPTIME,    uptime.seconds);
 	STRING_REG(reg, REG_MODEL,     model);
+	PACKED_STRING_REG(reg, REG_COMMIT, git_hash);
 	STRING_REG(reg, REG_VERSION,   version);
 	STRING_REG(reg, REG_SIGNATURE, signature);
+
+	if (reg == REG_COUNT0)
+		return channel0.counter;
+	if (reg == REG_COUNT1)
+		return channel1.counter;
 
 	return Result::IllegalDataAddress;
 }
@@ -260,6 +275,8 @@ uint32_t WBMR::validateHolding(uint16_t reg, uint16_t value)
 		if (value < 1 || value > 2)
 			return Result::IllegalDataValue;
 		break;
+	case REG_REBOOT:
+		break;
 	case REG_SLAVE_ADDR:
 		if (value < 1 || value > 247)
 			return Result::IllegalDataValue;
@@ -303,6 +320,9 @@ bool WBMR::applyHolding(uint16_t reg, uint16_t value)
 	    stop_bits   = value;
 	    cfg_changed = true;
 		break;
+	case REG_REBOOT:
+		reboot_pending = !!value;
+		break;
 	case REG_SLAVE_ADDR:
 		if (m_SlaveID != value)
 			return false;
@@ -345,6 +365,11 @@ uint32_t WBMR::onWriteHolding(uint16_t reg, uint16_t value)
 
 void WBMR::update()
 {
+	if (reboot_pending)
+	{
+		NVIC_SystemReset();
+	}
+
 	if (cfg_changed)
 	{
 		begin(baud_rate * 100, parity, stop_bits);

@@ -17,10 +17,13 @@
 /* Discrete input registers */
 #define REG_BUTTON_0 0
 #define REG_BUTTON_1 1
+#define REG_COUNT0   32
+#define REG_COUNT1   33
 
 /* Data input registers */
 #define REG_UPTIME    104
 #define REG_MODEL     200
+#define REG_COMMIT    220
 #define REG_VERSION   250
 #define REG_SIGNATURE 290
 
@@ -30,6 +33,7 @@
 #define REG_BAUD_RATE  110
 #define REG_PARITY     111
 #define REG_STOP_BITS  112
+#define REG_REBOOT     120
 #define REG_SLAVE_ADDR 128
 
 #endif /* REGISTERS_H_ */
