@@ -18,7 +18,11 @@ extern "C" { // This header is pure C
 
 static const char model[7]      = "WBMR2";
 static const char version[16]   = "1.0";
+#ifdef DEBUG
+static const char signature[12] = "OpenWB Dbg";
+#else
 static const char signature[12] = "OpenWB";
+#endif
 
 #include "git_revision.h"
 
@@ -326,7 +330,7 @@ bool WBMR::applyHolding(uint16_t reg, uint16_t value)
 		reboot_pending = !!value;
 		break;
 	case REG_SLAVE_ADDR:
-		if (m_SlaveID != value)
+		if (m_SlaveID == value)
 			return false;
 		// It's OK to change m_SlaveID during the transaction.
 		// The response will be correctly sent from an old address
