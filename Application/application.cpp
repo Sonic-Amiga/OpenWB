@@ -191,13 +191,15 @@ uint32_t WBMR::onReadDiscrete(uint16_t reg)
 	}
 }
 
-#define STRING_REG(reg, addr, str)                \
-    if (reg >= addr && reg <= addr + sizeof(str)) \
+#define STRING_REG(reg, addr, str)               \
+    if (reg >= addr && reg < addr + sizeof(str)) \
         return str[reg - addr]
 
-#define PACKED_STRING_REG(reg, addr, str)                             \
-	if (reg >= addr && reg <= addr + sizeof(str) / 2)                 \
-	    return ((uint16_t)str[reg - addr] << 8) | str[reg - addr + 1]
+#define PACKED_STRING_REG(reg, addr, str)                      \
+	if (reg >= addr && reg < addr + sizeof(str) / 2) {         \
+		uint16_t offset = (reg - addr) * 2;                    \
+	    return str[offset] | ((uint16_t)str[offset + 1] << 8); \
+    }
 
 #define BE32_REG(reg, addr, value) \
 	if (reg == addr)               \
