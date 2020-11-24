@@ -104,8 +104,10 @@ void ModbusRTUSlave::receiveByte(uint8_t data)
 		clearInputFrame();
 	}
 
-	// m_InputFrameLength is uint8_t, so this is safe
-    m_InputFrame[m_InputFrameLength++] = data;
+	if (m_RxActive) {
+		// m_InputFrameLength is uint8_t, so this is safe
+        m_InputFrame[m_InputFrameLength++] = data;
+	}
 
 	Micro_Timer_Start(m_RxTimeout);
 }
