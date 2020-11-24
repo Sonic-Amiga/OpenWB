@@ -43,7 +43,6 @@ public:
 
 	void clearInputFrame()
 	{
-		m_RxActive = true;
 		m_InputFrameLength = 0;
 	}
 

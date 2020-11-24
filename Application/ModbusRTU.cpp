@@ -156,6 +156,7 @@ void ModbusRTUSlave::update()
 		}
 
 		clearInputFrame();
+		m_RxActive = true;
 	}
 }
 
