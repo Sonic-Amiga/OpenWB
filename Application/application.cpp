@@ -24,7 +24,7 @@ static const char signature[12] = "OpenWB Dbg";
 static const char signature[12] = "OpenWB";
 #endif
 
-#include "git_revision.h"
+#include "build/git_revision.h"
 
 class UptimeCounter : public CountdownTimer
 {
