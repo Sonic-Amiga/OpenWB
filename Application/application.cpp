@@ -58,19 +58,12 @@ protected:
 	}
 };
 
-class ChannelHandler : public CountdownTimer
+class InputHandler : public CountdownTimer
 {
 public:
-  ChannelHandler(uint16_t relay, uint16_t input) : relay_pin(relay), input_pin(input) {}
+  InputHandler(uint16_t input) : input_pin(input) {}
 
   void onInterrupt();
-
-  void setRelayState(bool state)
-  {
-	  relay_state = state;
-      // Here we hope both relays are located on the same port, true so far
-      HAL_GPIO_WritePin(RELAY0_GPIO_Port, relay_pin, (GPIO_PinState)state);
-  }
 
   bool setDebounce(uint16_t value)
   {
@@ -80,17 +73,42 @@ public:
 	  return true;
   }
 
-  bool     relay_state = false;
   bool     input_state = false;
   uint16_t counter     = 0;
   uint16_t debounce    = 50;
 
+protected:
+  virtual void onTrigger() {}
+
 private:
-  const uint16_t relay_pin;
   const uint16_t input_pin;
 };
 
-void ChannelHandler::onInterrupt()
+class ChannelHandler : public InputHandler
+{
+public:
+  ChannelHandler(uint16_t relay, uint16_t input) : InputHandler(input), relay_pin(relay) {}
+
+  void setRelayState(bool state)
+  {
+	  relay_state = state;
+      // Here we hope both relays are located on the same port, true so far
+      HAL_GPIO_WritePin(RELAY0_GPIO_Port, relay_pin, (GPIO_PinState)state);
+  }
+
+  bool relay_state = false;
+
+protected:
+  void onTrigger() override
+  {
+	  setRelayState(!relay_state);
+  }
+
+private:
+  const uint16_t relay_pin;
+};
+
+void InputHandler::onInterrupt()
 {
 	input_state = !input_state;
     if (input_state)
@@ -101,7 +119,7 @@ void ChannelHandler::onInterrupt()
             return;
 
         counter++;
-        setRelayState(!relay_state);
+        onTrigger();
     }
     else
     {
@@ -110,13 +128,44 @@ void ChannelHandler::onInterrupt()
     }
 }
 
+class GlobalControlHandler : public InputHandler
+{
+public:
+	using InputHandler::InputHandler;
+
+protected:
+	void onTrigger() override;
+};
+
 static ChannelHandler channel0(RELAY0_Pin, INPUT0_Pin);
 static ChannelHandler channel1(RELAY1_Pin, INPUT1_Pin);
 #ifdef RELAY2_Pin
 static ChannelHandler channel2(RELAY2_Pin, INPUT2_Pin);
 #endif
+#ifdef INPUT3_Pin
+#ifdef RELAY3_Pin
+static ChannelHandler channel3(RELAY3_Pin, INPUT3_Pin);
+#else
+#define USE_GlobalControl
+static GlobalControlHandler channel3(INPUT3_Pin);
+#endif
+#endif
 static UptimeCounter uptime;
 static LEDTimer led;
+
+#ifdef USE_GlobalControl
+void GlobalControlHandler::onTrigger()
+{
+	channel0.setRelayState(false);
+	channel1.setRelayState(false);
+#ifdef RELAY2_Pin
+	channel2.setRelayState(false);
+#endif
+#ifdef RELAY3_Pin
+	channel3.setRelayState(false);
+#endif
+}
+#endif
 
 class WBMR : public ModbusRTUSlave
 {
@@ -183,6 +232,11 @@ uint32_t WBMR::onWriteCoil(uint16_t reg, bool value)
         channel2.setRelayState(value);
         break;
 #endif
+#ifdef RELAY3_Pin
+	case REG_RELAY_3:
+        channel3.setRelayState(value);
+        break;
+#endif
 	}
 
 	return Result::OK;
@@ -200,6 +254,10 @@ uint32_t WBMR::onReadCoil(uint16_t reg)
 	case REG_RELAY_2:
 		return channel2.relay_state;
 #endif
+#ifdef RELAY3_Pin
+	case REG_RELAY_3:
+		return channel3.relay_state;
+#endif
 	default:
 		return Result::IllegalDataAddress;
 	}
@@ -213,9 +271,13 @@ uint32_t WBMR::onReadDiscrete(uint16_t reg)
         return channel0.input_state;
 	case REG_BUTTON_1:
 		return channel1.input_state;
-#ifdef RELAY2_Pin
+#ifdef INPUT2_Pin
 	case REG_BUTTON_2:
 		return channel2.input_state;
+#endif
+#ifdef INPUT3_Pin
+	case REG_BUTTON_3:
+		return channel3.input_state;
 #endif
 	default:
 		return Result::IllegalDataAddress;
@@ -250,9 +312,13 @@ uint32_t WBMR::onReadInput(uint16_t reg)
 		return channel0.counter;
 	if (reg == REG_COUNT1)
 		return channel1.counter;
-#ifdef RELAY2_Pin
+#ifdef INPUT2_Pin
 	if (reg == REG_COUNT2)
 		return channel2.counter;
+#endif
+#ifdef INPUT3_Pin
+	if (reg == REG_COUNT3)
+		return channel3.counter;
 #endif
 
 	return Result::IllegalDataAddress;
@@ -266,9 +332,13 @@ uint32_t WBMR::onReadHolding(uint16_t reg)
 		return channel0.debounce;
 	case REG_DEBOUNCE_1:
 		return channel1.debounce;
-#ifdef RELAY2_Pin
+#ifdef INPUT2_Pin
 	case REG_DEBOUNCE_2:
 		return channel2.debounce;
+#endif
+#ifdef INPUT3_Pin
+	case REG_DEBOUNCE_3:
+		return channel3.debounce;
 #endif
 	case REG_BAUD_RATE:
 		return baud_rate;
@@ -337,8 +407,12 @@ bool WBMR::applyHolding(uint16_t reg, uint16_t value)
 		return channel0.setDebounce(value);
 	case REG_DEBOUNCE_1:
 		return channel1.setDebounce(value);
-#ifdef RELAY2_Pin
+#ifdef INPUT2_Pin
 	case REG_DEBOUNCE_2:
+		return channel2.setDebounce(value);
+#endif
+#ifdef INPUT3_Pin
+	case REG_DEBOUNCE_3:
 		return channel2.setDebounce(value);
 #endif
 	case REG_BAUD_RATE:
@@ -477,6 +551,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
 #ifdef INPUT2_Pin
 	case INPUT2_Pin:
 		channel2.onInterrupt();
+		break;
+#endif
+#ifdef INPUT3_Pin
+	case INPUT3_Pin:
+		channel3.onInterrupt();
 		break;
 #endif
 	}
