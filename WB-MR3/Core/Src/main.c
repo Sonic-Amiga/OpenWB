@@ -287,13 +287,13 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pins : INPUT0_Pin INPUT1_Pin INPUT2_Pin */
   GPIO_InitStruct.Pin = INPUT0_Pin|INPUT1_Pin|INPUT2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : INPUT3_Pin */
   GPIO_InitStruct.Pin = INPUT3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(INPUT3_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PB1 PB3 PB4 PB5
