@@ -17,7 +17,9 @@ $(BUILD_DIR)/git_revision.h: .git/index Makefile
 
 all: $(BUILD_DIR)/git_revision.h
 	$(MAKE) -C WB-MR2 APP_C_SOURCES="$(realpath $(APP_C_SOURCES))" APP_CXX_SOURCES="$(realpath $(APP_CXX_SOURCES))" APP_DIR="$(realpath $(APP_DIR))"
+	$(MAKE) -C WB-MR3 APP_C_SOURCES="$(realpath $(APP_C_SOURCES))" APP_CXX_SOURCES="$(realpath $(APP_CXX_SOURCES))" APP_DIR="$(realpath $(APP_DIR))"
 	
 clean:
 	-rm -fR $(BUILD_DIR)
 	$(MAKE) -C WB-MR2 clean
+	$(MAKE) -C WB-MR3 clean

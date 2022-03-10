@@ -7,7 +7,7 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2022 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under BSD 3-Clause license,
@@ -70,18 +70,26 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define LED_Pin GPIO_PIN_4
-#define LED_GPIO_Port GPIOA
-#define RELAY0_Pin GPIO_PIN_6
-#define RELAY0_GPIO_Port GPIOA
-#define RELAY1_Pin GPIO_PIN_7
-#define RELAY1_GPIO_Port GPIOA
-#define INPUT1_Pin GPIO_PIN_9
-#define INPUT1_GPIO_Port GPIOA
-#define INPUT1_EXTI_IRQn EXTI4_15_IRQn
-#define INPUT0_Pin GPIO_PIN_10
+#define INPUT0_Pin GPIO_PIN_5
 #define INPUT0_GPIO_Port GPIOA
 #define INPUT0_EXTI_IRQn EXTI4_15_IRQn
+#define INPUT1_Pin GPIO_PIN_6
+#define INPUT1_GPIO_Port GPIOA
+#define INPUT1_EXTI_IRQn EXTI4_15_IRQn
+#define INPUT2_Pin GPIO_PIN_7
+#define INPUT2_GPIO_Port GPIOA
+#define INPUT2_EXTI_IRQn EXTI4_15_IRQn
+#define INPUT3_Pin GPIO_PIN_0
+#define INPUT3_GPIO_Port GPIOB
+#define INPUT3_EXTI_IRQn EXTI0_1_IRQn
+#define RELAY2_Pin GPIO_PIN_10
+#define RELAY2_GPIO_Port GPIOA
+#define RELAY1_Pin GPIO_PIN_11
+#define RELAY1_GPIO_Port GPIOA
+#define RELAY0_Pin GPIO_PIN_12
+#define RELAY0_GPIO_Port GPIOA
+#define LED_Pin GPIO_PIN_7
+#define LED_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

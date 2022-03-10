@@ -1,3 +1,4 @@
+#include "application.h"
 #include "main.h"
 #include "stm32f0xx_hal.h"
 #include "hal_extras.h"
