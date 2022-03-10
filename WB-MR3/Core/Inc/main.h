@@ -82,12 +82,12 @@ void Error_Handler(void);
 #define INPUT3_Pin GPIO_PIN_0
 #define INPUT3_GPIO_Port GPIOB
 #define INPUT3_EXTI_IRQn EXTI0_1_IRQn
-#define RELAY2_Pin GPIO_PIN_10
-#define RELAY2_GPIO_Port GPIOA
+#define RELAY0_Pin GPIO_PIN_10
+#define RELAY0_GPIO_Port GPIOA
 #define RELAY1_Pin GPIO_PIN_11
 #define RELAY1_GPIO_Port GPIOA
-#define RELAY0_Pin GPIO_PIN_12
-#define RELAY0_GPIO_Port GPIOA
+#define RELAY2_Pin GPIO_PIN_12
+#define RELAY2_GPIO_Port GPIOA
 #define LED_Pin GPIO_PIN_7
 #define LED_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
