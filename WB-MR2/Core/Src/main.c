@@ -43,6 +43,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+const char model_str[7] = "WBMR2";
 
 /* USER CODE END PV */
 

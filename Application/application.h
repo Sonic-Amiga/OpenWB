@@ -16,6 +16,10 @@ extern "C" {
 void setup(void);
 void loop(void);
 
+// Device model string
+// This should be defined somewhere in target-specific code
+extern const char model_str[7];
+
 #ifdef __cplusplus
 }
 #endif

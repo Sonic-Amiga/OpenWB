@@ -17,8 +17,7 @@ extern "C" { // This header is pure C
 #define ENABLE_EEPROM
 #endif
 
-static const char model[7]      = "WBMR2";
-static const char version[16]   = "1.0";
+static const char version[16]   = "2.0";
 #ifdef DEBUG
 static const char signature[12] = "OpenWB Dbg";
 #else
@@ -73,6 +72,14 @@ public:
       HAL_GPIO_WritePin(RELAY0_GPIO_Port, relay_pin, (GPIO_PinState)state);
   }
 
+  bool setDebounce(uint16_t value)
+  {
+	  if (value == debounce)
+		  return false;
+	  debounce = value;
+	  return true;
+  }
+
   bool     relay_state = false;
   bool     input_state = false;
   uint16_t counter     = 0;
@@ -105,6 +112,9 @@ void ChannelHandler::onInterrupt()
 
 static ChannelHandler channel0(RELAY0_Pin, INPUT0_Pin);
 static ChannelHandler channel1(RELAY1_Pin, INPUT1_Pin);
+#ifdef RELAY2_Pin
+static ChannelHandler channel2(RELAY2_Pin, INPUT2_Pin);
+#endif
 static UptimeCounter uptime;
 static LEDTimer led;
 
@@ -147,6 +157,9 @@ uint32_t WBMR::validateCoil(uint16_t reg)
 	{
 	case REG_RELAY_0:
 	case REG_RELAY_1:
+#ifdef RELAY2_Pin
+	case REG_RELAY_2:
+#endif
         break;
 	default:
 		return Result::IllegalDataAddress;
@@ -165,6 +178,11 @@ uint32_t WBMR::onWriteCoil(uint16_t reg, bool value)
 	case REG_RELAY_1:
         channel1.setRelayState(value);
         break;
+#ifdef RELAY2_Pin
+	case REG_RELAY_2:
+        channel2.setRelayState(value);
+        break;
+#endif
 	}
 
 	return Result::OK;
@@ -177,7 +195,11 @@ uint32_t WBMR::onReadCoil(uint16_t reg)
 	case REG_RELAY_0:
         return channel0.relay_state;
 	case REG_RELAY_1:
-		return channel1.relay_state;;
+		return channel1.relay_state;
+#ifdef RELAY2_Pin
+	case REG_RELAY_2:
+		return channel2.relay_state;
+#endif
 	default:
 		return Result::IllegalDataAddress;
 	}
@@ -191,6 +213,10 @@ uint32_t WBMR::onReadDiscrete(uint16_t reg)
         return channel0.input_state;
 	case REG_BUTTON_1:
 		return channel1.input_state;
+#ifdef RELAY2_Pin
+	case REG_BUTTON_2:
+		return channel2.input_state;
+#endif
 	default:
 		return Result::IllegalDataAddress;
 	}
@@ -215,7 +241,7 @@ uint32_t WBMR::onReadDiscrete(uint16_t reg)
 uint32_t WBMR::onReadInput(uint16_t reg)
 {
 	BE32_REG(reg,   REG_UPTIME,    uptime.seconds);
-	STRING_REG(reg, REG_MODEL,     model);
+	STRING_REG(reg, REG_MODEL,     model_str);
 	PACKED_STRING_REG(reg, REG_COMMIT, git_hash);
 	STRING_REG(reg, REG_VERSION,   version);
 	STRING_REG(reg, REG_SIGNATURE, signature);
@@ -224,6 +250,10 @@ uint32_t WBMR::onReadInput(uint16_t reg)
 		return channel0.counter;
 	if (reg == REG_COUNT1)
 		return channel1.counter;
+#ifdef RELAY2_Pin
+	if (reg == REG_COUNT2)
+		return channel2.counter;
+#endif
 
 	return Result::IllegalDataAddress;
 }
@@ -236,6 +266,10 @@ uint32_t WBMR::onReadHolding(uint16_t reg)
 		return channel0.debounce;
 	case REG_DEBOUNCE_1:
 		return channel1.debounce;
+#ifdef RELAY2_Pin
+	case REG_DEBOUNCE_2:
+		return channel2.debounce;
+#endif
 	case REG_BAUD_RATE:
 		return baud_rate;
 	case REG_PARITY:
@@ -300,15 +334,13 @@ bool WBMR::applyHolding(uint16_t reg, uint16_t value)
 	switch (reg)
 	{
 	case REG_DEBOUNCE_0:
-		if (value == channel0.debounce)
-			return false;
-		channel0.debounce = value;
-		break;
+		return channel0.setDebounce(value);
 	case REG_DEBOUNCE_1:
-		if (value == channel1.debounce)
-			return false;
-		channel1.debounce = value;
-		break;
+		return channel1.setDebounce(value);
+#ifdef RELAY2_Pin
+	case REG_DEBOUNCE_2:
+		return channel2.setDebounce(value);
+#endif
 	case REG_BAUD_RATE:
 		if (value == baud_rate)
 			return false;
@@ -442,5 +474,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
 	case INPUT1_Pin:
 		channel1.onInterrupt();
 		break;
+#ifdef INPUT2_Pin
+	case INPUT2_Pin:
+		channel2.onInterrupt();
+		break;
+#endif
 	}
 }
