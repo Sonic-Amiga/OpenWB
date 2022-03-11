@@ -79,9 +79,9 @@ void Error_Handler(void);
 #define INPUT2_Pin GPIO_PIN_7
 #define INPUT2_GPIO_Port GPIOA
 #define INPUT2_EXTI_IRQn EXTI4_15_IRQn
-#define INPUT3_Pin GPIO_PIN_0
-#define INPUT3_GPIO_Port GPIOB
-#define INPUT3_EXTI_IRQn EXTI0_1_IRQn
+#define INPUT6_Pin GPIO_PIN_0
+#define INPUT6_GPIO_Port GPIOB
+#define INPUT6_EXTI_IRQn EXTI0_1_IRQn
 #define RELAY0_Pin GPIO_PIN_10
 #define RELAY0_GPIO_Port GPIOA
 #define RELAY1_Pin GPIO_PIN_11

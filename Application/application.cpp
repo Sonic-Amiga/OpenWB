@@ -17,7 +17,7 @@ extern "C" { // This header is pure C
 #define ENABLE_EEPROM
 #endif
 
-static const char version[16]   = "2.0";
+static const char version[16]   = "1.1";
 #ifdef DEBUG
 static const char signature[12] = "OpenWB Dbg";
 #else
@@ -128,44 +128,39 @@ void InputHandler::onInterrupt()
     }
 }
 
-class GlobalControlHandler : public InputHandler
-{
-public:
-	using InputHandler::InputHandler;
-
-protected:
-	void onTrigger() override;
-};
-
 static ChannelHandler channel0(RELAY0_Pin, INPUT0_Pin);
 static ChannelHandler channel1(RELAY1_Pin, INPUT1_Pin);
 #ifdef RELAY2_Pin
 static ChannelHandler channel2(RELAY2_Pin, INPUT2_Pin);
 #endif
-#ifdef INPUT3_Pin
 #ifdef RELAY3_Pin
 static ChannelHandler channel3(RELAY3_Pin, INPUT3_Pin);
-#else
-#define USE_GlobalControl
-static GlobalControlHandler channel3(INPUT3_Pin);
 #endif
-#endif
-static UptimeCounter uptime;
-static LEDTimer led;
-
-#ifdef USE_GlobalControl
-void GlobalControlHandler::onTrigger()
+#ifdef INPUT6_Pin
+class Channel0Handler : public InputHandler
 {
-	channel0.setRelayState(false);
-	channel1.setRelayState(false);
+public:
+	using InputHandler::InputHandler;
+
+protected:
+	void onTrigger() override
+	{
+	    channel0.setRelayState(false);
+	    channel1.setRelayState(false);
 #ifdef RELAY2_Pin
-	channel2.setRelayState(false);
+	    channel2.setRelayState(false);
 #endif
 #ifdef RELAY3_Pin
-	channel3.setRelayState(false);
+	    channel3.setRelayState(false);
 #endif
-}
+	}
+};
+
+static Channel0Handler channel6(INPUT6_Pin);
 #endif
+
+static UptimeCounter uptime;
+static LEDTimer led;
 
 class WBMR : public ModbusRTUSlave
 {
@@ -279,6 +274,10 @@ uint32_t WBMR::onReadDiscrete(uint16_t reg)
 	case REG_BUTTON_3:
 		return channel3.input_state;
 #endif
+#ifdef INPUT7_Pin
+	case REG_BUTTON_6:
+		return channel6.input_state;
+#endif
 	default:
 		return Result::IllegalDataAddress;
 	}
@@ -320,6 +319,10 @@ uint32_t WBMR::onReadInput(uint16_t reg)
 	if (reg == REG_COUNT3)
 		return channel3.counter;
 #endif
+#ifdef INPUT6_Pin
+	if (reg == REG_COUNT6)
+		return channel6.counter;
+#endif
 
 	return Result::IllegalDataAddress;
 }
@@ -339,6 +342,10 @@ uint32_t WBMR::onReadHolding(uint16_t reg)
 #ifdef INPUT3_Pin
 	case REG_DEBOUNCE_3:
 		return channel3.debounce;
+#endif
+#ifdef INPUT6_Pin
+	case REG_DEBOUNCE_6:
+		return channel6.debounce;
 #endif
 	case REG_BAUD_RATE:
 		return baud_rate;
@@ -556,6 +563,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
 #ifdef INPUT3_Pin
 	case INPUT3_Pin:
 		channel3.onInterrupt();
+		break;
+#endif
+#ifdef INPUT6_Pin
+	case INPUT6_Pin:
+		channel6.onInterrupt();
 		break;
 #endif
 	}
