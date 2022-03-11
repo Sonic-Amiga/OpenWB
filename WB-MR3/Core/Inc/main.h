@@ -59,6 +59,8 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
+#define EEPROM_START_ADDRESS  ((uint32_t)0x08007800) /* EEPROM emulation start address:
+                                                        last two kilobytes of Flash memory */
 
 /* USER CODE END EM */
 

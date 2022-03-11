@@ -11,6 +11,7 @@
 #define HAL_WRAPPER_H_
 
 #include "stm32f0xx_hal.h"
+#include "main.h"
 
 #define FLASH_Status HAL_StatusTypeDef
 #define FLASH_COMPLETE HAL_OK
